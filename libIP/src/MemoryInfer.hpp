@@ -33,16 +33,22 @@ class MemoryInfer {
         const std::string instance_name;
 #endif
         uint_16 instance_id;
+		MemoryType MemoryArray;
 	public:
 
-        // Constructor
+ 
+ 		// Constructor
 #ifndef __SYNTHESIS__
         MemoryInfer(const std::string instance_name, const uint_16 instance_id) :
-					instance_name{instance_name}, instance_id{instance_id} {}
+					instance_name{instance_name}, instance_id{instance_id} {
+			MemoryArray	= {};
+		}
 #endif
 		MemoryInfer(const uint_16 instance_id) : instance_id{instance_id} {
+			MemoryArray	= {};
 		}
 		MemoryInfer() {
+			MemoryArray	= {};
 			instance_id = 65535u;
 		}
 
@@ -64,12 +70,11 @@ template<typename T_Element, uint_64 N_Elements>
 void MemoryInfer<T_Element, N_Elements>
 	::access (	T_Element* wrData, addrType wrAddr, bool wrEn,
 				T_Element* rdData, addrType rdAddr, bool rdEn) {
-	static MemoryType MemoryArray;
 #pragma HLS PIPELINE II=1
 #pragma HLS INTERFACE ap_ctrl_none port=return
 #pragma HLS DATA_PACK variable=rdData
 #pragma HLS DATA_PACK variable=wrData
-#pragma HLS RESOURCE variable=MemoryArray core=RAM_S2P_BRAM
+//#pragma HLS RESOURCE variable=MemoryArray core=RAM_S2P_BRAM
 #pragma HLS DEPENDENCE variable=MemoryArray inter false
 	if (wrEn) MemoryArray[wrAddr] = *wrData;
 	if (rdEn) *rdData = MemoryArray[rdAddr];
