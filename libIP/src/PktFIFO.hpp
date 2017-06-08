@@ -26,10 +26,10 @@ class PktFIFO {
     private:
 
 // Defines here to fix template parameters passage
-#define FIFO_SIZE_BYTES T_FifoSize*T_MaxPktSize
-#define FIFO_ARRAY_SIZE Ceil(FIFO_SIZE_BYTES/(T_FifoElementSize/8))
-#define PKT_CNT_SIZE Ceil(Log2(Ceil(FIFO_SIZE_BYTES/T_MinPktSize)))
-#define PTR_SIZE Ceil(Log2(FIFO_ARRAY_SIZE))
+#define FIFO_SIZE_BYTES		T_FifoSize*T_MaxPktSize
+#define FIFO_ARRAY_SIZE		FIFO_SIZE_BYTES/bits2Bytes(T_FifoElementSize)
+#define PKT_CNT_SIZE		Log2(FIFO_SIZE_BYTES/T_MinPktSize)
+#define PTR_SIZE			Log2(FIFO_ARRAY_SIZE)
 
 #if __GNUC_PREREQ(4,7)
 		using FIFOElementType = FifoElement<ap_int<T_FifoElementSize>>;
@@ -72,9 +72,15 @@ class PktFIFO {
     public:
 
         // Constructor
+        PktFIFO(
 #ifndef __SYNTHESIS__
-        PktFIFO(const std::string instance_name, const uint_16 instance_id) :
-			instance_name{instance_name}, instance_id{instance_id}
+				const std::string instance_name,
+#endif
+				const uint_16 instance_id) :
+#ifndef __SYNTHESIS__
+				instance_name{instance_name}, 
+#endif
+				instance_id{instance_id}
         {
             buffPkt = 0;
             wrPtr = 0;
@@ -82,16 +88,8 @@ class PktFIFO {
             Empty = true;
             Full = false;
         }
-#endif
-		PktFIFO(const uint_16 instance_id) : instance_id{instance_id} {
-			buffPkt = 0;
-            wrPtr = 0;
-            rdPtr = 0;
-            Empty = true;
-            Full = false;
-		}
 
-        // General MISC information
+		// General MISC information
         const uint getFIFOSize() const {return InfMem.getMemorySize()*getElementSize();}
         const uint getElementSize() const {return T_FifoElementSize;}
 #ifndef __SYNTHESIS__
@@ -175,11 +173,8 @@ bool PktFIFO<T_FifoSize, T_FifoElementSize, T_MaxPktSize, T_MinPktSize>
 
 // FIFO access function
 template<uint_8 T_FifoSize, uint_16 T_FifoElementSize, uint_16 T_MaxPktSize, uint_16 T_MinPktSize>
-//std::pair<bool, bool> PktFIFO<T_FifoSize, T_FifoElementSize, T_MaxPktSize, T_MinPktSize>
-//	::access (FifoElement<ap_int<FIFO_ELEMENT_SIZE>> *wrData, bool wrEn, FifoElement<ap_int<FIFO_ELEMENT_SIZE>> *rdData, bool rdEn);
 void PktFIFO<T_FifoSize, T_FifoElementSize, T_MaxPktSize, T_MinPktSize>
 	::access (FIFOElementType *wrData, bool wrEn, FIFOElementType *rdData, bool rdEn) {
-	//return {(wrEn) ? write(wrData) : true, (rdEn) ? read(rdData) : true};
 
 #pragma HLS PIPELINE II=1
 #pragma HLS DEPENDENCE variable=InfMem inter WAR false

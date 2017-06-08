@@ -39,7 +39,7 @@ ifndef AP_GCC_PATH
 endif
 ifndef AP_CLANG_PATH
   AP_CLANG_PATH := /usr/bin
-#endif
+endif
 AUTOPILOT_TOOL := ${AUTOPILOT_ROOT}/${AUTOPILOT_MACH}/tools
 AUTOPILOT_TECH := ${AUTOPILOT_ROOT}/common/technology
 

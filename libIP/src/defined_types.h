@@ -4,6 +4,7 @@
 ******************************************************************************/
 #include <features.h>
 #include "ap_int.h"
+//#include "ap_fixed.h"
 
 #ifndef _DEF_TYPES_H_
 #define _DEF_TYPES_H_
@@ -36,19 +37,34 @@ struct FifoElement
     T Element;
     bool PacketIni;
     bool PacketEnd;
-    FifoElement() : PacketIni{0}, PacketEnd{0}, Element{} {}
+    FifoElement() : PacketIni{false}, PacketEnd{false}, Element{} {}
 };
 
 // Workaround non constexpr log and ceil
 // Reference: https://hbfs.wordpress.com/2016/03/22/log2-with-c-metaprogramming/
 template<typename T>
 constexpr uint Log2(T n) {
-	return ((n<2) ? 1 : 1+Log2(n>>2));
+	return ((n<2) ? 1 : 1+Log2(n>>1));
+}
+
+template<typename T_a, typename T_b>
+constexpr int_64 mod(T_a a, T_b b) {
+	return (a<b) ? a : mod(a-b, b);
 }
 
 template<typename T>
-constexpr int_64 Ceil(T n) {
-	return ((n==(uint)(n)) ? (uint)(n) : (uint)(n) + 1);
+constexpr uint_64 max_number_rep (T a) {
+	return (1 << a) - 1;
+}
+
+template<typename T>
+constexpr T bytes2Bits (T a) {
+	return a<<3;
+}
+
+template<typename T>
+constexpr T bits2Bytes (T a) {
+	return a>>3;
 }
 
 #endif //_DEF_TYPES_H_
