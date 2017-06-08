@@ -11,6 +11,9 @@ int main () {
 
     std::array<PacketStruct, 10> Packet;
     std::array<PacketStruct, 10> Packet_out;
+	ap_uint<8*14> PHV;
+	ap_uint<8*14> ExpPHV = "0x080000000000AABBCCDDEEFF1122";
+	bool PHVDone;
 
     for (int i = 0; i < Packet.size(); ++i) {
         Packet[i].Element = (i + 1) * 10;
@@ -19,12 +22,12 @@ int main () {
         if (i == 0) Packet[i].PacketIni = true;
         if (i == Packet.size() - 1) Packet[i].PacketEnd = true;
     }
-#if PKT_BUS_SIZE == 32 
+#if PKT_BUS_SIZE == 32
 	Packet[0].Element = "0xAABBCCDD";
 	Packet[1].Element =	"0xEEFF1122";
 	Packet[2].Element = "0x00000000";
 	Packet[3].Element = "0x00000800";
-#elif PKT_BUS_SIZE == 64 
+#elif PKT_BUS_SIZE == 64
 	Packet[1].Element = "0x0000080000000000";
 	Packet[0].Element = "0xAABBCCDDEEFF1122";
 #elif PKT_BUS_SIZE == 128
@@ -32,8 +35,6 @@ int main () {
 #else
 	Packet[0].Element = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0000080000000000AABBCCDDEEFF1122";
 #endif
-	ap_uint<8*14> PHV;
-	bool PHVDone;
 
 	//FIFO_access(&Packet[0], true, &Packet_out[0], false);
     for (int i = 0; i < Packet.size(); ++i) {
@@ -49,10 +50,15 @@ int main () {
 	//	}
 	//}
 
-	std::cout << "PHV " <<  PHV<< std::endl;
-	std::cout << "PHVDone " <<  PHVDone<< std::endl;
-	
-	//std::cout << "Test Passed!!! " << std::endl;
+	std::cout << "PHV " << PHV << std::endl;
+	std::cout << "PHVDone " << PHVDone << std::endl;
+
+	if (ExpPHV != PHV) {
+		std::cout << "Test ERROR!!!" << std::endl;
+		return -1;
+	}
+
+	std::cout << "Test Passed!!! " << std::endl;
     return 0;
 
 }

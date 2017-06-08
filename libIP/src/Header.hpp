@@ -56,12 +56,12 @@ class Header {
 		bool NextHeaderValid;
 
 		// This macro is to enable implementation of the PHV using a single register accumulator or a shift-regiter (implemented as array)
-		// Weird results here: the latter approach reduces area (-20% LUTs/FFs)!! 
+		// Weird results here: the latter approach reduces area (-20% LUTs/FFs)!!
 #define ARRAY_FOR_SR 1
 
 #if not ARRAY_FOR_SR
 		//Necessary to take the array size (synthesis recursion errors Log2)
-		std::array<bool, RECEIVED_WORDS_SIZE> dummyWordSize;	
+		std::array<bool, RECEIVED_WORDS_SIZE> dummyWordSize;
 		ap_uint<N_BusSize*RECEIVED_MAX_WORDS> ExtractedHeaderFull;
 #else
 		std::array<ap_uint<N_BusSize*RECEIVED_MAX_WORDS>, RECEIVED_WORDS_SIZE> ExtractedHeaderPipe;
@@ -70,12 +70,12 @@ class Header {
 		ap_uint<RECEIVED_BITS_SIZE> receivedBits;
 
 		//Necessary to take the array size (synthesis recursion errors Mod)
-		std::array<bool, DATA_STUFF_SIZE> dummydataStuffSize;		
-		
+		std::array<bool, DATA_STUFF_SIZE> dummyDataStuffSize;
+
 		T_DataBus DataOut;
 	public:
         // Constructor
-        Header(	
+        Header(
 #ifndef __SYNTHESIS__
 				const std::string instance_name,
 #endif
@@ -104,7 +104,7 @@ class Header {
         // General MISC information
         const uint_16 getHeaderSize() const {return N_Size;}
         const uint_16 getFieldNum() const {return HeaderLayout.Fields.size();}
-        const uint_16 getOutStuffBits() const {return dummydataStuffSize.size();}
+        const uint_16 getOutStuffBits() const {return dummyDataStuffSize.size();}
 #ifndef __SYNTHESIS__
         void printFields() {
 			for (auto it : HeaderLayout.Fields)
@@ -170,34 +170,35 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
 	::ExtractFields (T_DataBus DataIn, ap_uint<RECEIVED_WORDS_SIZE> receivedWords, bool* HeaderDone, ap_uint<HEADER_SIZE_IN_BITS>* PHV)
 {
 #pragma HLS PIPELINE II=1
+	auto tmpShiftVal = N_BusSize*receivedWords;	//Implemented as SR not mul
+
 	if (!*HeaderDone) {
 #if not ARRAY_FOR_SR
 		if (receivedWords < dummyWordSize.size()) {
 #else
 		if (receivedWords < ExtractedHeaderPipe.size()) {
 #endif
-			ap_uint<N_BusSize*RECEIVED_MAX_WORDS> DataInShift = 
-				(ap_uint<N_BusSize*RECEIVED_MAX_WORDS>(DataIn) << (N_BusSize*receivedWords));
+			ap_uint<N_BusSize*RECEIVED_MAX_WORDS> DataInShift = ap_uint<N_BusSize*RECEIVED_MAX_WORDS>(DataIn) << tmpShiftVal;
 			if (receivedWords == 0) {
 #if not ARRAY_FOR_SR
 				ExtractedHeaderFull = DataIn;
 #else
 				ExtractedHeaderPipe[0] = DataIn;
-#endif		
+#endif
 			} else {
 #if not ARRAY_FOR_SR
 				ExtractedHeaderFull |= DataInShift;
 #else
-				ExtractedHeaderPipe[receivedWords] = 
+				ExtractedHeaderPipe[receivedWords] =
 					ExtractedHeaderPipe[receivedWords - 1] | DataInShift;
-#endif		
+#endif
 			}
 		} else {
 #if not ARRAY_FOR_SR
 			*PHV = ExtractedHeaderFull;
 #else
 			*PHV = ExtractedHeaderPipe[receivedWords - 1];
-#endif		
+#endif
 			*HeaderDone = true;
 			std::cout << "Extracted: " << N_Size << " Bytes. PHV: " << *PHV << std::endl;
 		}
@@ -227,7 +228,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
 
 	std::cout << "Packet: " << DataIn << std::endl;
 	std::cout << "Stuff: " << getOutStuffBits() << std::endl;
-	
+
 	if (!HeaderIdle) {
 
 		// State transition evaluation
