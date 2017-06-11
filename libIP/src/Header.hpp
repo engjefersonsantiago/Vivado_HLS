@@ -1,5 +1,5 @@
 /******************************************************************************
-* Packet FIFO: one dimension implementation to save memory resources in FPGAs *
+* Packet Header: Header basic class for FPGA packet processing                *
 * Jeferson Santiago da Silva (eng.jefersonsantiago@gmail.com)                 *
 ******************************************************************************/
 
@@ -10,6 +10,16 @@
 
 #include "defined_types.h"
 #include "pktBasics.hpp"
+
+// This macro is to enable implementation of the PHV using a single register accumulator or a shift-regiter (implemented as array)
+// Weird results here: the latter approach reduces area!!
+#define ARRAY_FOR_SR 1	// Impossible to reach latency 1 if 0
+
+// Define to enable lookup implementation for the extraction bit shifts
+#define LOOKUPTABLE_FOR_SHIFT_CALC 1	//For "small" headers reduces area and improves performance
+
+// Macro to define the stuff data out size and the key shift
+#define STUFF_AND_SHIFT_SIZE_OP(A, B, C) ((uint_16(A) < uint_16(B)) ? uint_16(B - C) : uint_16(B - uint_16(C%B)))
 
 #ifndef _PKT_HEADER_HPP_
 #define _PKT_HEADER_HPP_
@@ -27,27 +37,28 @@
 template<uint_16 N_Size, uint_16 N_Fields, typename T_Key, uint_16 N_Key, typename T_DataBus, uint_16 N_BusSize, uint_16 N_MaxPktSize>
 class Header {
     private:
+		// Defines here to fix template parameters passage
+		static constexpr uint_16 HEADER_SIZE_IN_BITS = bytes2Bits(N_Size);
+		static constexpr uint_16 PKT_SIZE_IN_BITS = bytes2Bits(N_MaxPktSize);
+		static constexpr uint_16 DATAOUT_STUFF_SIZE = STUFF_AND_SHIFT_SIZE_OP(HEADER_SIZE_IN_BITS, N_BusSize, HEADER_SIZE_IN_BITS);
+		static constexpr uint_16 DATAOUT_STUFF_SHIFT = N_BusSize - DATAOUT_STUFF_SIZE;
+		static constexpr uint_16 RECEIVED_MAX_WORDS = (HEADER_SIZE_IN_BITS%N_BusSize == 0 \
+														? HEADER_SIZE_IN_BITS/N_BusSize \
+														: (HEADER_SIZE_IN_BITS/N_BusSize + 1));
+		static constexpr uint_16 RECEIVED_WORDS_SIZE = numbits(RECEIVED_MAX_WORDS);
+		static constexpr uint_16 RECEIVED_BITS_SIZE = numbits(PKT_SIZE_IN_BITS);
 
-// Defines here to fix template parameters passage
-#define HEADER_SIZE_IN_BITS		bytes2Bits(N_Size)
-#define PKT_SIZE_IN_BITS		bytes2Bits(N_MaxPktSize)
-#define DATA_STUFF_SIZE			(HEADER_SIZE_IN_BITS < N_BusSize \
-								? N_BusSize - mod(uint_16(HEADER_SIZE_IN_BITS), N_BusSize) \
-								: N_BusSize - mod(N_BusSize, uint_16(HEADER_SIZE_IN_BITS)))
-#define RECEIVED_MAX_WORDS		(mod(HEADER_SIZE_IN_BITS, N_BusSize) == 0 \
-								? HEADER_SIZE_IN_BITS/N_BusSize \
-								: (HEADER_SIZE_IN_BITS/N_BusSize + 1))
-#define RECEIVED_WORDS_SIZE		Log2(RECEIVED_MAX_WORDS)
-#define RECEIVED_BITS_SIZE		Log2(PKT_SIZE_IN_BITS)
+		//Used types
+		typedef ap_uint<HEADER_SIZE_IN_BITS> ExtractedHeaderType;
+		typedef std::array<ap_uint<HEADER_SIZE_IN_BITS>, RECEIVED_MAX_WORDS> ExtractedHeaderPipeType;
+		typedef ap_uint<RECEIVED_WORDS_SIZE> receivedWordsType;
+		typedef ap_uint<RECEIVED_BITS_SIZE> receivedBitsType;
 
-#ifndef __SYNTHESIS__
-		const std::string instance_name;
-#endif
-        const uint_16 instance_id;
+		IF_SOFTWARE(const std::string instance_name;)
+		const uint_16 instance_id;
 
-		HeaderFormat<N_Fields, T_Key, N_Key> HeaderLayout;
+		const HeaderFormat<N_Fields, T_Key, N_Key> HeaderLayout;
 
-		ap_uint<HEADER_SIZE_IN_BITS> ExtractedHeader;
 		bool HeaderIdle;
 		bool HeaderDone;
 		bool HeaderException;
@@ -55,194 +66,194 @@ class Header {
 		uint_16 NextHeader;
 		bool NextHeaderValid;
 
-		// This macro is to enable implementation of the PHV using a single register accumulator or a shift-regiter (implemented as array)
-		// Weird results here: the latter approach reduces area (-20% LUTs/FFs)!!
-#define ARRAY_FOR_SR 1
+		ExtractedHeaderType ExtractedHeader;
+		ExtractedHeaderPipeType ExtractedHeaderPipe;
+		receivedWordsType receivedWords;
+		receivedBitsType receivedBits;
 
-#if not ARRAY_FOR_SR
-		//Necessary to take the array size (synthesis recursion errors Log2)
-		std::array<bool, RECEIVED_WORDS_SIZE> dummyWordSize;
-		ap_uint<N_BusSize*RECEIVED_MAX_WORDS> ExtractedHeaderFull;
-#else
-		std::array<ap_uint<N_BusSize*RECEIVED_MAX_WORDS>, RECEIVED_WORDS_SIZE> ExtractedHeaderPipe;
-#endif
-		ap_uint<RECEIVED_WORDS_SIZE> receivedWords;
-		ap_uint<RECEIVED_BITS_SIZE> receivedBits;
+		T_DataBus DataOutReg;
 
-		//Necessary to take the array size (synthesis recursion errors Mod)
-		std::array<bool, DATA_STUFF_SIZE> dummyDataStuffSize;
+		const uint_16 stateTransShiftVal;
+		std::array<int_16, RECEIVED_MAX_WORDS> shiftNumLookup;
 
-		T_DataBus DataOut;
 	public:
         // Constructor
         Header(
-#ifndef __SYNTHESIS__
-				const std::string instance_name,
-#endif
+				IF_SOFTWARE(const std::string instance_name,)
 				const uint_16 instance_id,
 				const HeaderFormat<N_Fields, T_Key, N_Key>& HLayout) :
-#ifndef __SYNTHESIS__
-				instance_name{instance_name},
-#endif
-				instance_id{instance_id}
-				/*, HeaderLayout{HLayout}*/	// Why this does not work?
+				IF_SOFTWARE(instance_name{instance_name},)
+				instance_id{instance_id},
+				HeaderLayout(HLayout),
+				DataOutReg{0},
+				HeaderIdle{true},
+				receivedWords{0},
+				receivedBits{0},
+				NextHeaderValid{false},
+				HeaderDone{false},
+				NextHeader{false},
+				stateTransShiftVal{	STUFF_AND_SHIFT_SIZE_OP(HEADER_SIZE_IN_BITS, \
+									N_BusSize,
+									(HLayout.KeyLocation.first + HLayout.KeyLocation.second))}
 		{
-			for (auto it = 0; it < HLayout.Fields.size(); ++it) {
-				HeaderLayout.Fields[it].Offset = HLayout.Fields[it].Offset;
-				HeaderLayout.Fields[it].Length = HLayout.Fields[it].Length;
-#ifndef __SYNTHESIS__
-				HeaderLayout.Fields[it].FieldName = HLayout.Fields[it].FieldName;
-#endif
-			}
-			HeaderLayout.Key = HLayout.Key;
-			HeaderLayout.KeyLocation = HLayout.KeyLocation;
-#ifndef __SYNTHESIS__
-			HeaderLayout.HeaderName = HLayout.HeaderName;
-#endif
+			for (int it = 0; it < shiftNumLookup.size(); ++it)
+				shiftNumLookup[it] = HEADER_SIZE_IN_BITS - N_BusSize*(it+1);
 		}
 
         // General MISC information
         const uint_16 getHeaderSize() const {return N_Size;}
         const uint_16 getFieldNum() const {return HeaderLayout.Fields.size();}
-        const uint_16 getOutStuffBits() const {return dummyDataStuffSize.size();}
-#ifndef __SYNTHESIS__
-        void printFields() {
+        const uint_16 getOutStuffBits() const {return DATAOUT_STUFF_SIZE;}
+        IF_SOFTWARE(void printFields() {
 			for (auto it : HeaderLayout.Fields)
 				std::cout << "Field: " << it.FieldName << std::endl;
-		}
-        void printNextHeaders() {
+		})
+        IF_SOFTWARE(void printNextHeaders() {
 			for (auto it : HeaderLayout.Key)
-				std::cout << "Key: " << it.KeyVal << " Next Header: " << it.NextHeaderName << std::endl;
-		}
-		const std::string getInstName() const {return instance_name;};
-#endif
+				std::cout << "Key: " << std::hex << it.KeyVal << " Next Header: " << it.NextHeaderName << std::endl;
+		})
+		IF_SOFTWARE(const std::string getInstName() const {return instance_name;})
         uint_16 getInstId() const {return instance_id;};
 
-		void stateTransition (T_DataBus DataIn, ap_uint<RECEIVED_BITS_SIZE> receivedBits, bool* NextHeaderValid);
-		void ExtractFields (T_DataBus DataIn, ap_uint<RECEIVED_WORDS_SIZE> receivedWords, bool* HeaderDone, ap_uint<HEADER_SIZE_IN_BITS>* PHV);
-		void HeaderAnalysis (T_DataBus DataIn, bool HeaderStart, bool HeaderFinish, ap_uint<HEADER_SIZE_IN_BITS>* PHV, bool* PHVDone);
+		void stateTransition (T_DataBus DataIn, receivedBitsType receivedBits, bool* NextHeaderValid, uint_16* NextHeader);
+		void ExtractFields (T_DataBus DataIn, receivedWordsType receivedWords, bool* HeaderDone, ExtractedHeaderType* PHV);
+		void HeaderAnalysis (T_DataBus DataIn, bool HeaderStart, bool HeaderFinish, ExtractedHeaderType* PHV,
+							bool* PHVDone, T_DataBus* DataOut, uint_16* NextHeaderOut, bool* NextHeaderValidOut);
 
 };
 
 // FIFO access function
 template<uint_16 N_Size, uint_16 N_Fields, typename T_Key, uint_16 N_Key, typename T_DataBus, uint_16 N_BusSize, uint_16 N_MaxPktSize>
 void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
-	::stateTransition (T_DataBus DataIn, ap_uint<RECEIVED_BITS_SIZE> receivedBits, bool* NextHeaderValid)
+	::stateTransition (T_DataBus DataIn, receivedBitsType receivedBits, bool* NextHeaderValid, uint_16* NextHeader)
 {
-#pragma HLS PIPELINE II=1
+#pragma HLS INLINE
 #pragma HLS UNROLL
+#pragma HLS LATENCY min=1 max=1
+//#pragma HLS PIPELINE II=1
 
 	// Combinational logic
-	// Constant would be nice here for the mask, but template does not work
 	T_Key DataInMask = (1 << HeaderLayout.KeyLocation.second) - 1;
 	auto tmpReceivedBits = receivedBits + N_BusSize;
-	auto tmpShiftVal = HeaderLayout.KeyLocation.first - receivedBits;
-	T_Key tmpKeyVal = T_Key(DataIn >> tmpShiftVal) & DataInMask;
+	T_Key tmpKeyVal = T_Key(DataIn >> stateTransShiftVal) & DataInMask;
 
 	HeaderException = false;
-
-	if ((tmpReceivedBits >= HeaderLayout.KeyLocation.first) && !*NextHeaderValid) {
+	if (HeaderLayout.LastHeader) {
+		std::cout << "Last header. No state transition" << std::endl;
+		return;
+	}
+	if (!*NextHeaderValid && tmpReceivedBits > HeaderLayout.KeyLocation.first) {
 		HeaderException = true;
 		loop_key: for (auto it : HeaderLayout.Key) {
 			if (it.KeyVal == tmpKeyVal & it.KeyMask) {
 #ifndef __SYNTHESIS__
 				std::cout << "Found a valid transition from " << instance_name << " to "\
-							<< it.NextHeaderName << ". Key: " << it.KeyVal << std::endl;
+							<< it.NextHeaderName << ". Key: " << std::hex << uint(it.KeyVal) << std::endl;
 #else
 				std::cout << "Found a valid transition from " << instance_id << " to "\
-							<< it.NextHeader << ". Key: " << it.KeyVal << std::endl;
+							<< it.NextHeader << ". Key: " << std::hex << uint(it.KeyVal) << std::endl;
 #endif
-				NextHeader = it.NextHeader;
+				*NextHeader = it.NextHeader;
 				*NextHeaderValid = true;
 				HeaderException	= false;
-				break;
 			}
 		}
 		if (HeaderException) {
 			std::cout << "Header transition not found. Aborting processing" << std::endl;
 		}
 	}
-
 };
 
 template<uint_16 N_Size, uint_16 N_Fields, typename T_Key, uint_16 N_Key, typename T_DataBus, uint_16 N_BusSize, uint_16 N_MaxPktSize>
 void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
-	::ExtractFields (T_DataBus DataIn, ap_uint<RECEIVED_WORDS_SIZE> receivedWords, bool* HeaderDone, ap_uint<HEADER_SIZE_IN_BITS>* PHV)
+	::ExtractFields (T_DataBus DataIn, receivedWordsType receivedWords, bool* HeaderDone, ExtractedHeaderType* PHV)
 {
-#pragma HLS PIPELINE II=1
-	auto tmpShiftVal = N_BusSize*receivedWords;	//Implemented as SR not mul
+#pragma HLS INLINE
+#pragma HLS LATENCY min=1 max=1
+//#pragma HLS PIPELINE II=1
+
+	auto tmpShiftVal = N_BusSize*(receivedWords+1);	//Implemented as SR not mul
+#if LOOKUPTABLE_FOR_SHIFT_CALC
+	auto tmpDinlShifted = ExtractedHeaderType(DataIn) << shiftNumLookup[receivedWords];
+#else
+	auto tmpDinlShifted = ExtractedHeaderType(DataIn) << (HEADER_SIZE_IN_BITS - tmpShiftVal);
+#endif
+	auto tmpDinrShifted = ExtractedHeaderType((DataIn) >> (N_BusSize - HEADER_SIZE_IN_BITS));
 
 	if (!*HeaderDone) {
-#if not ARRAY_FOR_SR
-		if (receivedWords < dummyWordSize.size()) {
-#else
-		if (receivedWords < ExtractedHeaderPipe.size()) {
-#endif
-			ap_uint<N_BusSize*RECEIVED_MAX_WORDS> DataInShift = ap_uint<N_BusSize*RECEIVED_MAX_WORDS>(DataIn) << tmpShiftVal;
-			if (receivedWords == 0) {
-#if not ARRAY_FOR_SR
-				ExtractedHeaderFull = DataIn;
-#else
-				ExtractedHeaderPipe[0] = DataIn;
-#endif
+		if (receivedWords < RECEIVED_MAX_WORDS) {
+			if (HEADER_SIZE_IN_BITS > N_BusSize)  {
+				if (receivedWords == 0) {
+					ExtractedHeaderPipe[0] = ExtractedHeader = tmpDinlShifted;
+
+				} else {
+					ExtractedHeader |= tmpDinlShifted;
+					ExtractedHeaderPipe[receivedWords] = ExtractedHeaderPipe[receivedWords-1] | tmpDinlShifted;
+				}
 			} else {
-#if not ARRAY_FOR_SR
-				ExtractedHeaderFull |= DataInShift;
-#else
-				ExtractedHeaderPipe[receivedWords] =
-					ExtractedHeaderPipe[receivedWords - 1] | DataInShift;
-#endif
+				ExtractedHeader = ExtractedHeaderPipe[0] = tmpDinrShifted;
 			}
-		} else {
+		} else  {
 #if not ARRAY_FOR_SR
-			*PHV = ExtractedHeaderFull;
+			*PHV = ExtractedHeader;
 #else
 			*PHV = ExtractedHeaderPipe[receivedWords - 1];
 #endif
 			*HeaderDone = true;
-			std::cout << "Extracted: " << N_Size << " Bytes. PHV: " << *PHV << std::endl;
+			std::cout << "Extracted: " << std::dec << N_Size << " Bytes. PHV: " << std::hex << *PHV << std::endl;
 		}
 	}
 }
 
 template<uint_16 N_Size, uint_16 N_Fields, typename T_Key, uint_16 N_Key, typename T_DataBus, uint_16 N_BusSize, uint_16 N_MaxPktSize>
 void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
-	::HeaderAnalysis (T_DataBus DataIn, bool HeaderStart, bool HeaderFinish, ap_uint<HEADER_SIZE_IN_BITS>* PHV, bool* PHVDone)
+	::HeaderAnalysis (T_DataBus DataIn, bool HeaderStart, bool HeaderFinish, ExtractedHeaderType* PHV, bool* PHVDone, T_DataBus* DataOut, uint_16* NextHeaderOut, bool* NextHeaderValidOut)
 {
-#pragma HLS DEPENDENCE variable=HeaderIdle false
-#pragma HLS DEPENDENCE variable=receivedBits false
-#pragma HLS DEPENDENCE variable=receivedWords false
-#pragma HLS DEPENDENCE variable=NextHeaderValid false
-#pragma HLS DEPENDENCE variable=HeaderException false
-#pragma HLS DEPENDENCE variable=HeaderDone false
-#pragma HLS PIPELINE II=1
+#pragma HLS LATENCY min=1 max=1
+#pragma HLS DEPENDENCE variable=HeaderIdle WAR false
+#pragma HLS DEPENDENCE variable=NextHeaderValid WAR false
+#pragma HLS DEPENDENCE variable=HeaderDone WAR false
+#pragma HLS DEPENDENCE variable=NextHeader WAR false
 
+	//if (HeaderStart && instance_id == headerIn.nextHeader)) {
 	if (HeaderStart) {
 		std::cout << "Received a new packet" << std::endl;
 		HeaderIdle = false;
-		receivedWords = 0;
-		receivedBits = 0;
-		NextHeaderValid = false;
-		HeaderDone = false;
 	}
 
-	std::cout << "Packet: " << DataIn << std::endl;
-	std::cout << "Stuff: " << getOutStuffBits() << std::endl;
+	std::cout << "Packet Word In: " << std::hex << DataIn << std::endl;
 
 	if (!HeaderIdle) {
-
-		// State transition evaluation
-		stateTransition(DataIn, receivedBits, &NextHeaderValid);
 
 		// Header extration
 		ExtractFields(DataIn, receivedWords, &HeaderDone, PHV);
 		*PHVDone = HeaderDone;
 
-		++receivedWords;
-		receivedBits+=N_BusSize;
+		// State transition evaluation
+		stateTransition(DataIn, receivedBits, &NextHeaderValid, &NextHeader);
+		*NextHeaderOut = NextHeader;
+		*NextHeaderValidOut = NextHeaderValid;
+
+		//auto stuffSizeMask = ap_uint<DATAOUT_STUFF_SIZE>((1 << DATAOUT_STUFF_SIZE) - 1);
+		auto stuffSizeMask = ap_uint<DATAOUT_STUFF_SIZE>((ap_uint<DATAOUT_STUFF_SIZE+1>(1) << DATAOUT_STUFF_SIZE) - 1);
+		*DataOut = ((T_DataBus(DataOutReg) & stuffSizeMask) << DATAOUT_STUFF_SHIFT)
+						| T_DataBus(DataIn) >> DATAOUT_STUFF_SIZE;
+
+		std::cout << "Packet Word Out: " << std::hex << *DataOut << std::endl;
+		DataOutReg = DataIn;
+
+		// Execution control
 		if (HeaderFinish /*|| HeaderException*/) {
-			HeaderIdle = true;
 			std::cout << "Packet has finished" << std::endl;
+			HeaderIdle = true;
+			receivedWords = 0;
+			receivedBits = 0;
+			NextHeaderValid = false;
+			HeaderDone = false;
+			NextHeader = 0;
+		} else {
+			++receivedWords;
+			receivedBits+=N_BusSize;
 		}
 	}
 }

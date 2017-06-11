@@ -63,7 +63,7 @@ IFLAG += -D__SIM_FIR__
 
 IFLAG += -D__SIM_DDS__
 
-IFLAG += -std=c++0x
+IFLAG += -std=c++11
 IFLAG += -g
 DFLAG += -D__xilinx_ip_top= -DAESL_TB
 

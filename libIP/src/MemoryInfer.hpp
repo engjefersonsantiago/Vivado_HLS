@@ -21,42 +21,26 @@
 template<typename T_Element, uint_64 N_Elements>
 class MemoryInfer {
     private:
-#if __GNUC_PREREQ(4,7)
-		using addrType = ap_uint<Log2(N_Elements)>;
-		using MemoryType = std::array<T_Element, N_Elements>;
-#else
-		typedef ap_uint<Log2(N_Elements)> addrType;
+		typedef ap_uint<numbits(N_Elements)> addrType;
 		typedef std::array<T_Element, N_Elements> MemoryType;
-#endif
 
-#ifndef __SYNTHESIS__
-        const std::string instance_name;
-#endif
+        IF_SOFTWARE(const std::string instance_name;)
         uint_16 instance_id;
 		MemoryType MemoryArray;
 	public:
 
- 
- 		// Constructor
-#ifndef __SYNTHESIS__
-        MemoryInfer(const std::string instance_name, const uint_16 instance_id) :
-					instance_name{instance_name}, instance_id{instance_id} {
-			MemoryArray	= {};
-		}
-#endif
-		MemoryInfer(const uint_16 instance_id) : instance_id{instance_id} {
-			MemoryArray	= {};
-		}
-		MemoryInfer() {
-			MemoryArray	= {};
-			instance_id = 65535u;
-		}
+		// Constructor
+        MemoryInfer(IF_SOFTWARE(const std::string instance_name,)
+					const uint_16 instance_id) :
+					IF_SOFTWARE(instance_name{instance_name},)
+					instance_id{instance_id},
+					MemoryArray{} {}
+
+		MemoryInfer() : MemoryArray{}, instance_id{65535u} {}
 
         // General MISC information
         const uint_64 getMemorySize() const {return N_Elements;}
-#ifndef __SYNTHESIS__
-        const std::string getInstName()  {return instance_name;};
-#endif
+        IF_SOFTWARE(const std::string getInstName()  {return instance_name;})
         uint_16 getInstId() const {return instance_id;};
 
 		// Access functions

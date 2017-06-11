@@ -25,41 +25,24 @@ template<uint_8 T_FifoSize, uint_16 T_FifoElementSize, uint_16 T_MaxPktSize, uin
 class PktFIFO {
     private:
 
-// Defines here to fix template parameters passage
-#define FIFO_SIZE_BYTES		T_FifoSize*T_MaxPktSize
-#define FIFO_ARRAY_SIZE		FIFO_SIZE_BYTES/bits2Bytes(T_FifoElementSize)
-#define PKT_CNT_SIZE		Log2(FIFO_SIZE_BYTES/T_MinPktSize)
-#define PTR_SIZE			Log2(FIFO_ARRAY_SIZE)
+		// Defines here to fix template parameters passage
+		static constexpr uint_16 FIFO_SIZE_BYTES = T_FifoSize*T_MaxPktSize;
+		static constexpr uint_16 FIFO_ARRAY_SIZE = FIFO_SIZE_BYTES/bits2Bytes(T_FifoElementSize);
+		static constexpr uint_16 PKT_CNT_SIZE = numbits(FIFO_SIZE_BYTES/T_MinPktSize);
+		static constexpr uint_16 PTR_SIZE = numbits(FIFO_ARRAY_SIZE);
 
-#if __GNUC_PREREQ(4,7)
-		using FIFOElementType = FifoElement<ap_int<T_FifoElementSize>>;
-		using pktCntType = ap_uint<PKT_CNT_SIZE>;
-		using ptrType = ap_uint<PTR_SIZE>;
-#else
 		typedef FifoElement<ap_int<T_FifoElementSize>> FIFOElementType;
 		typedef ap_uint<PKT_CNT_SIZE> pktCntType;
 		typedef ap_uint<PTR_SIZE> ptrType;
-#endif
 
-#ifndef __SYNTHESIS__
-		const std::string instance_name;
-#endif
+		IF_SOFTWARE(const std::string instance_name;)
         uint_16 instance_id;
 
-#ifndef __SYNTHESIS__
-	// This is required because Xilinx's GCC does not understand object declation with construction parameters
-	#if __GNUC_PREREQ(4,8)
-		MemoryInfer<FIFOElementType, FIFO_ARRAY_SIZE> InfMem {"Memory", 0};
-	#else
-		MemoryInfer<FIFOElementType, FIFO_ARRAY_SIZE> InfMem;
-	#endif
+		// This is required because Xilinx's GCC does not understand object declation with construction parameters
+#if __GNUC_PREREQ(4,8)
+		MemoryInfer<FIFOElementType, FIFO_ARRAY_SIZE> InfMem {IF_SOFTWARE("Memory",) 0};
 #else
-	// This is required because Xilinx's GCC does not understand object declation with construction parameters
-	#if __GNUC_PREREQ(4,8)
-		MemoryInfer<FIFOElementType, FIFO_ARRAY_SIZE> InfMem {0};
-	#else
 		MemoryInfer<FIFOElementType, FIFO_ARRAY_SIZE> InfMem;
-	#endif
 #endif
 
         pktCntType buffPkt;
@@ -73,29 +56,21 @@ class PktFIFO {
 
         // Constructor
         PktFIFO(
-#ifndef __SYNTHESIS__
-				const std::string instance_name,
-#endif
+				IF_SOFTWARE(const std::string instance_name,)
 				const uint_16 instance_id) :
-#ifndef __SYNTHESIS__
-				instance_name{instance_name}, 
-#endif
-				instance_id{instance_id}
-        {
-            buffPkt = 0;
-            wrPtr = 0;
-            rdPtr = 0;
-            Empty = true;
-            Full = false;
-        }
+				IF_SOFTWARE(instance_name{instance_name},)
+				instance_id{instance_id},
+                buffPkt {0},
+				wrPtr {0},
+				rdPtr {0},
+				Empty {true},
+				Full {false} {}
 
 		// General MISC information
         const uint getFIFOSize() const {return InfMem.getMemorySize()*getElementSize();}
         const uint getElementSize() const {return T_FifoElementSize;}
-#ifndef __SYNTHESIS__
-        const std::string getInstName() const {return instance_name;};
-#endif
-        uint_16 getInstId() const {return instance_id;};
+        IF_SOFTWARE(const std::string getInstName() const {return instance_name;})
+        uint_16 getInstId() const {return instance_id;}
 
 		// Occupancy status
         void BuffPktInc() {buffPkt++;}
@@ -140,9 +115,7 @@ bool PktFIFO<T_FifoSize, T_FifoElementSize, T_MaxPktSize, T_MinPktSize>
         if (wrData->PacketIni) BuffPktInc();
         return true;
     } else {
-#ifndef __SYNTHESIS__
         std::cout << "There is no available room at the FIFO. Data is not being stored" << std::endl;
-#endif
         return false;
     }
 }
@@ -164,9 +137,7 @@ bool PktFIFO<T_FifoSize, T_FifoElementSize, T_MaxPktSize, T_MinPktSize>
         if (rdData->PacketEnd) BuffPktDec();
         return true;
     } else {
-#ifndef __SYNTHESIS__
         std::cout << "The FIFO is Empty. No data to be read" << std::endl;
-#endif
         return false;
     }
 }

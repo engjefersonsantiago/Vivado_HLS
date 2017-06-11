@@ -9,6 +9,14 @@
 #ifndef _DEF_TYPES_H_
 #define _DEF_TYPES_H_
 
+// Macro to remove non-synthesizable constructs
+// Code from Francois-Raymond Boyer (francois-r.boyer@polymtl.ca)
+#ifdef __SYNTHESIS__
+	#define IF_SOFTWARE(...)
+#else
+	#define IF_SOFTWARE(...) __VA_ARGS__
+#endif
+
 // Signed
 typedef int int_32;
 typedef long long int int_64;
@@ -43,18 +51,13 @@ struct FifoElement
 // Workaround non constexpr log and ceil
 // Reference: https://hbfs.wordpress.com/2016/03/22/log2-with-c-metaprogramming/
 template<typename T>
-constexpr uint Log2(T n) {
-	return ((n<2) ? 1 : 1+Log2(n>>1));
+constexpr uint numbits(T n) {
+	return ((n<2) ? 1 : 1+numbits(n>>1));
 }
 
 template<typename T_a, typename T_b>
-constexpr int_64 mod(T_a a, T_b b) {
+constexpr T_a mod(T_a a, T_b b) {
 	return (a<b) ? a : mod(a-b, b);
-}
-
-template<typename T>
-constexpr uint_64 max_number_rep (T a) {
-	return (1 << a) - 1;
 }
 
 template<typename T>
