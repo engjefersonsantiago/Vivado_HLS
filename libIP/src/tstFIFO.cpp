@@ -2,9 +2,7 @@
 
 //bool FIFO_access (FIFOElementType *wrData, bool wrEn,
 //					FIFOElementType *rdData, bool rdEn) {
-bool HeaderAnalysisTop (ap_uint<PKT_BUS_SIZE> DataIn, bool HeaderStart, bool HeaderFinish,
-						ap_uint<8*HEADER_SIZE>* PHV, bool* PHVDone, ap_uint<PKT_BUS_SIZE>* DataOut,
-						uint_16* NextHeaderOut, bool* NextHeaderValidOut)
+bool HeaderAnalysisTop(PacketData<PKT_BUS_SIZE> DataIn, PHVData<HEADER_SIZE>* PHV, PacketData<PKT_BUS_SIZE>* DataOut)
 {
 #pragma HLS INTERFACE ap_ctrl_none port=return
 #pragma HLS PIPELINE II=1
@@ -30,19 +28,16 @@ bool HeaderAnalysisTop (ap_uint<PKT_BUS_SIZE> DataIn, bool HeaderStart, bool Hea
 	static Header<HEADER_SIZE, 4, uint_8, 1, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE>
 		UDP(IF_SOFTWARE("UDP",) 22, UDPLayout);
 
-	//Ethernet.HeaderAnalysis(DataIn, HeaderStart, HeaderFinish, PHV, PHVDone, DataOut, NextHeaderOut, NextHeaderValidOut);
-	//IPv4.HeaderAnalysis(DataIn, HeaderStart, HeaderFinish, PHV, PHVDone, DataOut, NextHeaderOut, NextHeaderValidOut);
-
 #if HEADER_SIZE == 14
-	Ethernet.HeaderAnalysis(DataIn, HeaderStart, HeaderFinish, PHV, PHVDone, DataOut, NextHeaderOut, NextHeaderValidOut);
+	Ethernet.HeaderAnalysis(DataIn, PHV, DataOut);
 #elif HEADER_SIZE == 8
-	UDP.HeaderAnalysis(DataIn, HeaderStart, HeaderFinish, PHV, PHVDone, DataOut, NextHeaderOut, NextHeaderValidOut);
+	UDP.HeaderAnalysis(DataIn, PHV, DataOut);
 #else
-	IPv4.HeaderAnalysis(DataIn, HeaderStart, HeaderFinish, PHV, PHVDone, DataOut, NextHeaderOut, NextHeaderValidOut);
+	IPv4.HeaderAnalysis(DataIn, PHV, DataOut);
 #endif
 
 	//Ethernet.HeaderAnalysis(DataIn, HeaderStart, HeaderFinish, PHV_0, PHVDone_0, DataOut_0, NextHeaderOut_0, NextHeaderValidOut_0);
-	//IPv4.HeaderAnalysis(&DataOut_0, &NextHeaderValidOut_0, HeaderFinish, PHV, PHVDone, DataOut, NextHeaderOut, NextHeaderValidOut);
+	//IPv4.HeaderAnalysis(&DataOut_0, &PHVDone_0, 0, PHV, PHVDone, DataOut, NextHeaderOut, NextHeaderValidOut);
 	//IPv4.HeaderAnalysis(DataIn, HeaderStart, HeaderFinish, PHV, PHVDone, DataOut, NextHeaderOut, NextHeaderValidOut);
 	// myFIFO.access(wrData, wrEn, rdData, rdEn);
     return true;

@@ -41,4 +41,22 @@ class HeaderFormat {
 
 };
 
+// Basic packet data type
+template<uint_16 N_BusSize>
+struct PacketData {
+	ap_uint<N_BusSize> Data;
+	uint_64 ID;
+	bool Start;
+	bool Finish;
+	uint_16 HeaderID;
+};
+
+// Basic PHV (packet header vector) type
+template<uint_16 N_Size>
+struct PHVData {
+	ap_uint<bytes2Bits(N_Size)> Data;
+	bool Valid;
+	uint_64 ID;
+};
+
 #endif //_PKT_BASICS_HPP_
