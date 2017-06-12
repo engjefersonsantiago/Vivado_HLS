@@ -14,12 +14,16 @@
 #define _PARSER_HEADER_TEMP_HPP_
 
 // Ethernet frame layout
-const HeaderFormat<3, uint_16, 7> EthernetLayout
+const HeaderFormat<14, 3, uint_16, 7> EthernetLayout
 {
+	// PHV mask
+	//(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
+	(ap_uint<112>(~0)),
+	//(ap_uint<112>(0)),
 	{
 		// Header layout
 		{
-			{0, 48 IF_SOFTWARE(, "DestinationMAC")},
+			{0, 48 IF_SOFTWARE(, "Destination MAC")},
 			{48, 48 IF_SOFTWARE(, "Source MAC")},
 			{96, 16 IF_SOFTWARE(, "EtherType")}
 		},
@@ -45,8 +49,11 @@ const HeaderFormat<3, uint_16, 7> EthernetLayout
 };
 
 // IPv4 frame layout
-const HeaderFormat<13, uint_8, 2> IPv4Layout
+const HeaderFormat<20, 13, uint_8, 2> IPv4Layout
 {
+	// PHV mask
+	//(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
+	(ap_uint<160>(~0)),
 	{
 		// Header layout
 		{
@@ -55,7 +62,7 @@ const HeaderFormat<13, uint_8, 2> IPv4Layout
 			{8, 13 IF_SOFTWARE(, "DSCP")},
 			{14, 15 IF_SOFTWARE(, "ECN")},
 			{16, 31 IF_SOFTWARE(, "Total Length")},
-			{32, 47 IF_SOFTWARE(, "Identidication")},
+			{32, 47 IF_SOFTWARE(, "Identification")},
 			{48, 51 IF_SOFTWARE(, "Flags")},
 			{52, 63 IF_SOFTWARE(, "Fragment Offset")},
 			{64, 71 IF_SOFTWARE(, "TTL")},
@@ -80,9 +87,12 @@ const HeaderFormat<13, uint_8, 2> IPv4Layout
 	IF_SOFTWARE(, "IPv4 Layout")
 };
 
-// IPv4 frame layout
-const HeaderFormat<4, uint_8, 1> UDPLayout
+// UDP frame layout
+const HeaderFormat<8, 4, uint_8, 1> UDPLayout
 {
+	// PHV mask
+	//ap_uint<64>(0xFFFFFFFFFFFFFFFF),
+	(ap_uint<64>(~0)),
 	{
 		// Header layout
 		{

@@ -30,15 +30,16 @@ struct KeyFormat {
 };
 
 // Basic Header Format structure
-template<uint_16 N_Fields, typename T_Key, uint_16 N_Key>
+template<uint_16 N_Size, uint_16 N_Fields, typename T_Key, uint_16 N_Key>
 class HeaderFormat {
 	public:
+	//const uint_16 Size = N_Size;
+	ap_uint<bytes2Bits(N_Size)> PHVMask;
 	std::array<FieldFormat, N_Fields> Fields;
 	std::array<KeyFormat<T_Key>, N_Key> Key;
 	std::pair<uint_16, uint_16> KeyLocation;	// First: Offset. Second: Lenght
 	bool LastHeader;							// Last header: no transition
 	IF_SOFTWARE(std::string HeaderName;)
-
 };
 
 // Basic packet data type
@@ -49,6 +50,7 @@ struct PacketData {
 	bool Start;
 	bool Finish;
 	uint_16 HeaderID;
+	PacketData() : Data{0}, ID{0}, Start{false}, Finish{false}, HeaderID{0} {}
 };
 
 // Basic PHV (packet header vector) type

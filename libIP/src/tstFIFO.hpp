@@ -17,7 +17,12 @@ enum op {READ, WRITE};
 //#define PKT_BUS_SIZE 64
 #define PKT_BUS_SIZE 128
 //#define PKT_BUS_SIZE 256
+//#define PKT_BUS_SIZE 320
 //#define PKT_BUS_SIZE 512
+
+#define ETH_HEADER_SIZE 14
+#define IP_HEADER_SIZE 20
+#define UDP_HEADER_SIZE 8
 
 #define HEADER_SIZE 14	// 14: ethernet, 20: IP, 8: UDP
 //#define HEADER_SIZE 20	// 14: ethernet, 20: IP, 8: UDP

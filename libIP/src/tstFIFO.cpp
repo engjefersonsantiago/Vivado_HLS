@@ -21,11 +21,11 @@ bool HeaderAnalysisTop(PacketData<PKT_BUS_SIZE> DataIn, PHVData<HEADER_SIZE>* PH
 
 	static PktFIFO<FIFO_SIZE, FIFO_ELEMENT_SIZE, MAX_PKT_SIZE, MIN_PKT_SIZE>
 		myFIFO (IF_SOFTWARE("my_fifo",) 0);
-	static Header<HEADER_SIZE, 3, uint_16, 7, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE>
+	static Header<ETH_HEADER_SIZE, 3, uint_16, 7, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE>
 		Ethernet(IF_SOFTWARE("Ethernet",) 0, EthernetLayout);
-	static Header<HEADER_SIZE, 13, uint_8, 2, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE>
+	static Header<IP_HEADER_SIZE, 13, uint_8, 2, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE>
 		IPv4(IF_SOFTWARE("Ipv4",) 11, IPv4Layout);
-	static Header<HEADER_SIZE, 4, uint_8, 1, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE>
+	static Header<UDP_HEADER_SIZE, 4, uint_8, 1, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE>
 		UDP(IF_SOFTWARE("UDP",) 22, UDPLayout);
 
 #if HEADER_SIZE == 14

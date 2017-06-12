@@ -57,7 +57,7 @@ class Header {
 		IF_SOFTWARE(const std::string instance_name;)
 		const uint_16 instance_id;
 
-		const HeaderFormat<N_Fields, T_Key, N_Key> HeaderLayout;
+		const HeaderFormat<N_Size, N_Fields, T_Key, N_Key> HeaderLayout;
 
 		bool HeaderIdle;
 		bool HeaderDone;
@@ -81,7 +81,7 @@ class Header {
         Header(
 				IF_SOFTWARE(const std::string instance_name,)
 				const uint_16 instance_id,
-				const HeaderFormat<N_Fields, T_Key, N_Key>& HLayout) :
+				const HeaderFormat<N_Size, N_Fields, T_Key, N_Key>& HLayout) :
 				IF_SOFTWARE(instance_name{instance_name},)
 				instance_id{instance_id},
 				HeaderLayout(HLayout),
@@ -197,9 +197,9 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
 			}
 		} else  {
 #if not ARRAY_FOR_SR
-			tmpPHV.Data = ExtractedHeader;
+			tmpPHV.Data = ExtractedHeader & HeaderLayout.PHVMask;
 #else
-			tmpPHV.Data = ExtractedHeaderPipe[receivedWords - 1];
+			tmpPHV.Data = ExtractedHeaderPipe[receivedWords - 1] & HeaderLayout.PHVMask;
 #endif
 			tmpPHV.Valid = *HeaderDone = true;
 			std::cout << "Extracted: " << std::dec << N_Size << " Bytes. PHV: " << std::hex << PHV->Data << std::endl;
