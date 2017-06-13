@@ -61,6 +61,7 @@ class Header {
 
 		bool HeaderIdle;
 		bool HeaderDone;
+		bool HeaderDonePulse;
 		bool HeaderException;
 
 		uint_16 NextHeader;
@@ -116,7 +117,7 @@ class Header {
         uint_16 getInstId() const {return instance_id;};
 
 		void stateTransition(PacketData<N_BusSize> PacketIn, receivedBitsType receivedBits, bool* NextHeaderValid, uint_16* NextHeader);
-		void ExtractFields(PacketData<N_BusSize> PacketIn, receivedWordsType receivedWords, bool* HeaderDone, PHVData<N_Size>* PHV);
+		void ExtractFields(PacketData<N_BusSize> PacketIn, receivedWordsType receivedWords, bool* HeaderDone, PHVData<N_Size>* PHV, bool* HeaderDonePulse);
 		void HeaderAnalysis(PacketData<N_BusSize> PacketIn, PHVData<N_Size>* PHV, PacketData<N_BusSize>* PacketOut);
 
 };
@@ -138,34 +139,29 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
 
 	HeaderException = false;
 	if (HeaderLayout.LastHeader) {
-		std::cout << "Last header. No state transition" << std::endl;
+		IF_SOFTWARE(std::cout << "Last header. No state transition" << std::endl;)
 		return;
 	}
 	if (!*NextHeaderValid && tmpReceivedBits > HeaderLayout.KeyLocation.first) {
 		HeaderException = true;
 		loop_key: for (auto it : HeaderLayout.Key) {
 			if (it.KeyVal == tmpKeyVal & it.KeyMask) {
-#ifndef __SYNTHESIS__
-				std::cout << "Found a valid transition from " << instance_name << " to "\
-							<< it.NextHeaderName << ". Key: " << std::hex << uint(it.KeyVal) << std::endl;
-#else
-				std::cout << "Found a valid transition from " << instance_id << " to "\
-							<< it.NextHeader << ". Key: " << std::hex << uint(it.KeyVal) << std::endl;
-#endif
+				IF_SOFTWARE(std::cout << "Found a valid transition from " << instance_name << " to "\
+							<< it.NextHeaderName << ". Key: " << std::hex << uint(it.KeyVal) << std::endl;)
 				*NextHeader = it.NextHeader;
 				*NextHeaderValid = true;
 				HeaderException	= false;
 			}
 		}
 		if (HeaderException) {
-			std::cout << "Header transition not found. Aborting processing" << std::endl;
+			IF_SOFTWARE(std::cout << "Header transition not found. Aborting processing" << std::endl;)
 		}
 	}
 };
 
 template<uint_16 N_Size, uint_16 N_Fields, typename T_Key, uint_16 N_Key, typename T_DataBus, uint_16 N_BusSize, uint_16 N_MaxPktSize>
 void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
-	::ExtractFields(PacketData<N_BusSize> PacketIn, receivedWordsType receivedWords, bool* HeaderDone, PHVData<N_Size>* PHV)
+	::ExtractFields(PacketData<N_BusSize> PacketIn, receivedWordsType receivedWords, bool* HeaderDone, PHVData<N_Size>* PHV, bool* HeaderDonePulse)
 {
 #pragma HLS INLINE
 #pragma HLS LATENCY min=1 max=1
@@ -181,6 +177,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
 	PHVData<N_Size>  tmpPHV;
 	tmpPHV.ID = PacketIn.ID;
 	tmpPHV.Valid = *HeaderDone;
+	*HeaderDonePulse = false;
 
 	if (!*HeaderDone) {
 		if (receivedWords < RECEIVED_MAX_WORDS) {
@@ -201,8 +198,8 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
 #else
 			tmpPHV.Data = ExtractedHeaderPipe[receivedWords - 1] & HeaderLayout.PHVMask;
 #endif
-			tmpPHV.Valid = *HeaderDone = true;
-			std::cout << "Extracted: " << std::dec << N_Size << " Bytes. PHV: " << std::hex << PHV->Data << std::endl;
+			tmpPHV.Valid = *HeaderDone = *HeaderDonePulse = true;
+			std::cout << "Extracted: " << std::dec << N_Size << " Bytes. PHV: " << std::hex << tmpPHV.Data << std::endl;
 			*PHV = tmpPHV;
 		}
 	}
@@ -219,34 +216,42 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
 #pragma HLS DEPENDENCE variable=NextHeader WAR false
 
 	if (PacketIn.Start && PacketIn.HeaderID == instance_id) {
-		std::cout << "Received a new packet" << std::endl;
+		IF_SOFTWARE(std::cout << "Received a new packet" << std::endl;)
 		HeaderIdle = false;
 	}
 
-	std::cout << "Packet Word In: " << std::hex << PacketIn.Data << std::endl;
+	IF_SOFTWARE(std::cout << instance_name << " Packet Word In: " << std::hex << PacketIn.Data << std::endl;)
+	IF_SOFTWARE(std::cout << instance_name << " Packet Start In: " << std::hex << PacketIn.Start << std::endl;)
+	IF_SOFTWARE(std::cout << instance_name << " Packet Finish In: " << std::hex << PacketIn.Finish << std::endl;)
+	IF_SOFTWARE(std::cout << instance_name << " Packet HeaderID In: " << std::hex << PacketIn.HeaderID << std::endl;)
+	IF_SOFTWARE(std::cout << instance_name << " Packet Word In: " << std::hex << PacketIn.Data << std::endl;)
 
 	if (!HeaderIdle) {
 
 		// Header extration
-		ExtractFields(PacketIn, receivedWords, &HeaderDone, PHV);
+		ExtractFields(PacketIn, receivedWords, &HeaderDone, PHV, &HeaderDonePulse);
 
 		// State transition evaluation
 		stateTransition(PacketIn, receivedBits, &NextHeaderValid, &NextHeader);
 
+		// Adjusting output data
 		auto stuffSizeMask = ap_uint<DATAOUT_STUFF_SIZE>((ap_uint<DATAOUT_STUFF_SIZE+1>(1) << DATAOUT_STUFF_SIZE) - 1);
 		PacketOut->Data = ((T_DataBus(PacketOutReg.Data) & stuffSizeMask) << DATAOUT_STUFF_SHIFT)
 						| T_DataBus(PacketIn.Data) >> DATAOUT_STUFF_SIZE;
 		PacketOut->ID = PacketOutReg.ID;
-		PacketOut->Start = PacketOutReg.Start & HeaderDone;
+		PacketOut->Start = HeaderDonePulse;
 		PacketOut->Finish = PacketOutReg.Finish;
 		PacketOut->HeaderID = NextHeader;
-
-		std::cout << "Packet Word Out: " << std::hex << PacketOut->Data << std::endl;
+		IF_SOFTWARE(std::cout << instance_name << " Packet Start Out: " << std::hex << PacketOut->Start << std::endl;)
+		IF_SOFTWARE(std::cout << instance_name << " Packet Finish Out: " << std::hex << PacketOut->Finish << std::endl;)
+		IF_SOFTWARE(std::cout << instance_name << " Packet HeaderID Out: " << std::hex << PacketOut->HeaderID << std::endl;)
+		IF_SOFTWARE(std::cout << instance_name << " Packet Word Out: " << std::hex << PacketOut->Data << std::endl;)
+		// Output data delay (to keep the pipeline full)
 		PacketOutReg = PacketIn;
 
 		// Execution control
 		if (PacketIn.Finish /*|| HeaderException*/) {
-			std::cout << "Packet has finished" << std::endl;
+			IF_SOFTWARE(std::cout << "Packet has finished" << std::endl;)
 			HeaderIdle = true;
 			receivedWords = 0;
 			receivedBits = 0;
