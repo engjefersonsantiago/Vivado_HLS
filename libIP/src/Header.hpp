@@ -175,7 +175,9 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize>
 #endif
 	auto tmpDinrShifted = ExtractedHeaderType((PacketIn.Data) >> (N_BusSize - HEADER_SIZE_IN_BITS));
 	PHVData<N_Size>  tmpPHV;
-	tmpPHV.ID = PacketIn.ID;
+	IF_SOFTWARE(tmpPHV.Name = instance_name;)
+	tmpPHV.ID = instance_id;
+	tmpPHV.PktID = PacketIn.ID;
 	tmpPHV.Valid = *HeaderDone;
 	*HeaderDonePulse = false;
 

@@ -4,14 +4,20 @@
 ******************************************************************************/
 
 #include "Parser.hpp"
+#include <memory>
 
 int main () {
 
     std::array<PacketData<PKT_BUS_SIZE>, 8> Packet;
     std::array<PacketData<PKT_BUS_SIZE>, 8> Packet_out;
+	#ifdef ARRAY_OF_POINTERS_TO_PHV	
+	std::array<PHVData<MAX_HEADER_SIZE>*, HEADER_NUM> PHV;  for (auto & it: PHV) it = new PHVData<MAX_HEADER_SIZE>;
+	#else
 	std::array<PHVData<MAX_HEADER_SIZE>, HEADER_NUM> PHV;
+	#endif
+
 	std::array<PHVData<MAX_HEADER_SIZE>, HEADER_NUM> ExpPHV;
-	uint_64 PktID = 0xa5;
+	uint_64 PktID = 69;
 	uint_16 HeaderID;
 	PHVData<ETH_HEADER_SIZE> Ethernet_PHV;
 	PHVData<IP_HEADER_SIZE> IP_PHV;
@@ -63,44 +69,81 @@ int main () {
 
     for (int i = 0; i < Packet.size(); ++i) {
 		Packet[i].HeaderID = HeaderID;
-		//HeaderAnalysisTop(Packet[i], &PHV, &Packet_out[i]);
+		Packet[i].ID = PktID;
+#ifdef ARRAY_FOR_PHV
+	#ifdef ARRAY_OF_POINTERS_TO_PHV	
+		HeaderAnalysisTop(Packet[i], PHV, &Packet_out[i]);
+	#else
+		HeaderAnalysisTop(Packet[i], &PHV, &Packet_out[i]);
+	#endif
+#else
 		HeaderAnalysisTop(Packet[i], &Ethernet_PHV, &IP_PHV, &UDP_PHV, &Packet_out[i]);
+#endif
 	}
 
 	Packet[0].Finish = true;
-	//HeaderAnalysisTop(Packet[0], &PHV, &Packet_out[0]);
+#ifdef ARRAY_FOR_PHV
+	#ifdef ARRAY_OF_POINTERS_TO_PHV	
+	HeaderAnalysisTop(Packet[0], PHV, &Packet_out[0]);
+	#else
+	HeaderAnalysisTop(Packet[0], &PHV, &Packet_out[0]);
+	#endif
+#else
 	HeaderAnalysisTop(Packet[0], &Ethernet_PHV, &IP_PHV, &UDP_PHV, &Packet_out[0]);
+#endif
 
-    //for (int i = 0; i < HEADER_NUM; ++i) {
-	//	std::cout << "PHV Index: " << std::dec << i << std::endl;
-	//	std::cout << "PHV: " << std::hex << PHV[i].Data << std::endl;
-	//	std::cout << "PHV Valid: " << PHV[i].Valid << std::endl;
-	//	if (ExpPHV[i].Data != PHV[i].Data) {
-	//		std::cout << "Test ERROR!!!" << std::endl;
-	//		//return -1;
-	//	}
-	//}
-
-	std::cout << "Ethernet PHV: " << std::hex << Ethernet_PHV.Data << std::endl;
-	std::cout << "Ethernet PHV Valid: " << Ethernet_PHV.Valid << std::endl;
-	if (ExpEthernet_PHV.Data != Ethernet_PHV.Data) {
+#ifdef ARRAY_FOR_PHV
+	#ifdef ARRAY_OF_POINTERS_TO_PHV	
+    for (int i = 0; i < HEADER_NUM; ++i) {
+		std::cout << /*PHV[i].Name <<*/ " PHV: " << std::hex << PHV[i]->Data << std::endl;
+		std::cout << /*PHV[i].Name <<*/ " PHV Valid: " << std::dec << PHV[i]->Valid << std::endl;
+		std::cout << /*PHV[i].Name <<*/ " PHV ID: " << std::dec << PHV[i]->ID << std::endl;
+		std::cout << /*PHV[i].Name <<*/ " PHV Packet ID: " << std::dec << PHV[i]->PktID << std::endl;
+		if (ExpPHV[i].Data != PHV[i]->Data || !PHV[i]->Valid) {
+			std::cout << "Test ERROR!!!" << std::endl;
+			return -1;
+		}
+	}
+	#else
+	for (int i = 0; i < HEADER_NUM; ++i) {
+		std::cout << /*PHV[i].Name <<*/ " PHV: " << std::hex << PHV[i].Data << std::endl;
+		std::cout << /*PHV[i].Name <<*/ " PHV Valid: " << std::dec << PHV[i].Valid << std::endl;
+		std::cout << /*PHV[i].Name <<*/ " PHV ID: " << std::dec << PHV[i].ID << std::endl;
+		std::cout << /*PHV[i].Name <<*/ " PHV Packet ID: " << std::dec << PHV[i].PktID << std::endl;
+		if (ExpPHV[i].Data != PHV[i].Data || !PHV[i].Valid) {
+			std::cout << "Test ERROR!!!" << std::endl;
+			return -1;
+		}
+	}
+	#endif
+#else
+	std::cout << Ethernet_PHV.Name << " PHV: " << std::hex << Ethernet_PHV.Data << std::endl;
+	std::cout << Ethernet_PHV.Name << " PHV Valid: " << std::dec << Ethernet_PHV.Valid << std::endl;
+	std::cout << Ethernet_PHV.Name << " PHV ID: " << std::dec << Ethernet_PHV.ID << std::endl;
+	std::cout << Ethernet_PHV.Name << " PHV Packet ID: " << std::dec << Ethernet_PHV.PktID << std::endl;
+	if (ExpEthernet_PHV.Data != Ethernet_PHV.Data || !Ethernet_PHV.Valid) {
 		std::cout << "Ethernet Test ERROR!!!" << std::endl;
 		return -1;
 	}
 
-	std::cout << "IP PHV: " << std::hex << IP_PHV.Data << std::endl;
-	std::cout << "IP PHV Valid: " << IP_PHV.Valid << std::endl;
-	if (ExpIP_PHV.Data != IP_PHV.Data) {
+	std::cout << IP_PHV.Name << " PHV: " << std::hex << IP_PHV.Data << std::endl;
+	std::cout << IP_PHV.Name << " PHV Valid: " << std::dec << IP_PHV.Valid << std::endl;
+	std::cout << IP_PHV.Name << " PHV ID: " << std::dec << IP_PHV.ID << std::endl;
+	std::cout << IP_PHV.Name << " PHV Packet ID: " << std::dec << IP_PHV.PktID << std::endl;
+	if (ExpIP_PHV.Data != IP_PHV.Data || !IP_PHV.Valid) {
 		std::cout << "IP Test ERROR!!!" << std::endl;
 		return -1;
 	}
 
-	std::cout << "IP PHV: " << std::hex << UDP_PHV.Data << std::endl;
-	std::cout << "IP PHV Valid: " << UDP_PHV.Valid << std::endl;
-	if (ExpUDP_PHV.Data != UDP_PHV.Data) {
+	std::cout << UDP_PHV.Name << " PHV: " << std::hex << UDP_PHV.Data << std::endl;
+	std::cout << UDP_PHV.Name << " PHV Valid: " << std::dec << UDP_PHV.Valid << std::endl;
+	std::cout << UDP_PHV.Name << " PHV ID: " << std::dec << UDP_PHV.ID << std::endl;
+	std::cout << UDP_PHV.Name << " PHV Packet ID: " << std::dec << UDP_PHV.PktID << std::endl;
+	if (ExpUDP_PHV.Data != UDP_PHV.Data || !UDP_PHV.Valid) {
 		std::cout << "UDP Test ERROR!!!" << std::endl;
 		return -1;
 	}
+#endif
 
 	std::cout << "Test Passed!!! " << std::endl;
     return 0;

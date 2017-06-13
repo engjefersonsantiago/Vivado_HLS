@@ -29,7 +29,17 @@
 #define MAX_HEADER_SIZE 20
 #define MAX_HEADER_SIZE_BITS bytes2Bits(MAX_HEADER_SIZE)
 
-//void HeaderAnalysisTop(PacketData<PKT_BUS_SIZE> PacketIn, std::array<PHVData<MAX_HEADER_SIZE>, HEADER_NUM>* PHV, PacketData<PKT_BUS_SIZE>* PacketOut);
+#define ARRAY_FOR_PHV
+//#define ARRAY_OF_POINTERS_TO_PHV
+
+#ifdef ARRAY_FOR_PHV
+	#ifdef ARRAY_OF_POINTERS_TO_PHV
+void HeaderAnalysisTop(PacketData<PKT_BUS_SIZE> PacketIn, std::array<PHVData<MAX_HEADER_SIZE>*, HEADER_NUM> PHV, PacketData<PKT_BUS_SIZE>* PacketOut);
+	#else
+void HeaderAnalysisTop(PacketData<PKT_BUS_SIZE> PacketIn, std::array<PHVData<MAX_HEADER_SIZE>, HEADER_NUM>* PHV, PacketData<PKT_BUS_SIZE>* PacketOut);
+	#endif
+#else
 void HeaderAnalysisTop(PacketData<PKT_BUS_SIZE> PacketIn, PHVData<ETH_HEADER_SIZE>* Ethernet_PHV, PHVData<IP_HEADER_SIZE>* IP_PHV, PHVData<UDP_HEADER_SIZE>* UDP_PHV, PacketData<PKT_BUS_SIZE>* PacketOut);
+#endif
 
 #endif //_TST_HEADER_HPP_

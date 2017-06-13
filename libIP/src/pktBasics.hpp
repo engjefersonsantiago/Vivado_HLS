@@ -58,7 +58,9 @@ template<uint_16 N_Size>
 struct PHVData {
 	ap_uint<bytes2Bits(N_Size)> Data;
 	bool Valid;
-	uint_64 ID;
+	uint_16 ID;
+	uint_64 PktID;
+	IF_SOFTWARE(std::string Name;)
 };
 
 #endif //_PKT_BASICS_HPP_
