@@ -3,12 +3,12 @@
 
 int main () {
 
-    std::array<PacketData<PKT_BUS_SIZE>, 8> Packet;
-    std::array<PacketData<PKT_BUS_SIZE>, 8> Packet_out;
-	PHVData<HEADER_SIZE> PHV;
-	PHVData<HEADER_SIZE> ExpPHV;
-	uint_64 PktID = 0xa5;
-	uint_16 HeaderID;
+    std::array<PacketData<PKT_BUS_SIZE, 32, 16>, 8> Packet;
+    std::array<PacketData<PKT_BUS_SIZE, 32, 16>, 8> Packet_out;
+	PHVData<HEADER_SIZE, 32, 16> PHV;
+	PHVData<HEADER_SIZE, 32, 16> ExpPHV;
+	uint64_t PktID = 0xa5;
+	uint16_t HeaderID;
 
 #if HEADER_SIZE == 14
 	ExpPHV.Data = "0x001C0F090010001C0F5CA2830800";
@@ -21,7 +21,7 @@ int main () {
 	HeaderID = 11;
 #endif
 	bool PHVDone;
-	uint_16 NextHeaderOut;
+	uint16_t NextHeaderOut;
 	bool NextHeaderValidOut;
 
     for (int i = 0; i < Packet.size(); ++i) {
@@ -78,11 +78,13 @@ int main () {
 	//FIFO_access(&Packet[0], true, &Packet_out[0], false);
     for (int i = 0; i < Packet.size(); ++i) {
 		Packet[i].HeaderID = HeaderID;
-		HeaderAnalysisTop(Packet[i], &PHV, &Packet_out[i]);
+		auto& Packet_in =Packet[i]; 
+		HeaderAnalysisTop(Packet_in, &PHV, &Packet_out[i]);
     }
 
 	Packet[0].Finish = true;
-	HeaderAnalysisTop(Packet[0], &PHV, &Packet_out[0]);
+	auto& Packet_in =Packet[0]; 
+	HeaderAnalysisTop(Packet_in, &PHV, &Packet_out[0]);
 
 	//FIFO_access(&Packet[0], false, &Packet_out[Packet.size() - 1], true);
 

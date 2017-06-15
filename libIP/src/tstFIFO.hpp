@@ -1,4 +1,4 @@
-#include "PktFIFO.hpp"
+//#include "PktFIFO.hpp"
 #include "Header.hpp"
 #include "parser_header_template.hpp"
 
@@ -14,8 +14,8 @@ typedef FifoElement<ap_int<FIFO_ELEMENT_SIZE>> FIFOElementType;
 enum op {READ, WRITE};
 
 //#define PKT_BUS_SIZE 32
-//#define PKT_BUS_SIZE 64
-#define PKT_BUS_SIZE 128
+#define PKT_BUS_SIZE 64
+//#define PKT_BUS_SIZE 128
 //#define PKT_BUS_SIZE 256
 //#define PKT_BUS_SIZE 320
 //#define PKT_BUS_SIZE 512
@@ -29,6 +29,6 @@ enum op {READ, WRITE};
 //#define HEADER_SIZE 8		// 14: ethernet, 20: IP, 8: UDP
 
 //bool FIFO_access (FIFOElementType *wrData, bool wrEn, FIFOElementType *rdData, bool rdEn);
-bool HeaderAnalysisTop(PacketData<PKT_BUS_SIZE> DataIn, PHVData<HEADER_SIZE>* PHV, PacketData<PKT_BUS_SIZE>* DataOut);
+bool HeaderAnalysisTop(PacketData<PKT_BUS_SIZE, 32, 16> DataIn, PHVData<HEADER_SIZE, 32, 16>* PHV, PacketData<PKT_BUS_SIZE, 32, 16>* DataOut);
 
 #endif //_TST_FIFO_HPP_

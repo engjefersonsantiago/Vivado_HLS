@@ -14,12 +14,12 @@
 #define _PARSER_HEADER_TEMP_HPP_
 
 // Ethernet frame layout
-const HeaderFormat<14, 3, uint_16, 7> EthernetLayout
+const HeaderFormat<14, 3, uint16_t, 7, 32> EthernetLayout
 {
 	// PHV mask
 	//(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
-	(ap_uint<112>(~0)),
-	//(ap_uint<112>(0)),
+	//(ap_uint<112>(0)),	// None
+	(ap_uint<112>(~0)),		// All
 	{
 		// Header layout
 		{
@@ -41,7 +41,7 @@ const HeaderFormat<14, 3, uint_16, 7> EthernetLayout
 		},
 	},
 	// Key position
-	std::pair<uint_16, uint_16>{96, 16},	// EtherType byte 12..14
+	std::pair<ap_uint<7>, ap_uint<7>>{96, 16},	// EtherType byte 12..14
 	// Last header
 	(false)
 	// Header Layout name
@@ -49,11 +49,12 @@ const HeaderFormat<14, 3, uint_16, 7> EthernetLayout
 };
 
 // IPv4 frame layout
-const HeaderFormat<20, 13, uint_8, 2> IPv4Layout
+const HeaderFormat<20, 13, uint8_t, 2, 32> IPv4Layout
 {
 	// PHV mask
-	//(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
-	(ap_uint<160>(~0)),
+	//("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
+	//("0x00000000000000FF00000000FFFFFFFFFFFFFFFF"),	// Protocol and addresses
+	(ap_uint<160>(~0)),	// All
 	{
 		// Header layout
 		{
@@ -80,7 +81,7 @@ const HeaderFormat<20, 13, uint_8, 2> IPv4Layout
 		},
 	},
 	// Key position
-	std::pair<uint_16, uint_16>{72, 8},		// Protocol
+	std::pair<ap_uint<8>, ap_uint<8>>{72, 8},		// Protocol
 	// Last header
 	(false)
 	// Header Layout name
@@ -88,18 +89,19 @@ const HeaderFormat<20, 13, uint_8, 2> IPv4Layout
 };
 
 // UDP frame layout
-const HeaderFormat<8, 4, uint_8, 1> UDPLayout
+const HeaderFormat<8, 4, uint8_t, 1, 32> UDPLayout
 {
 	// PHV mask
-	//ap_uint<64>(0xFFFFFFFFFFFFFFFF),
-	(ap_uint<64>(~0)),
+	//(0xFFFFFFFFFFFFFFFF),
+	//("0xFFFFFFFF00000000"),	// Ports
+	(ap_uint<64>(~0)),	// All
 	{
 		// Header layout
 		{
-			{0, 15 IF_SOFTWARE(, "Version")},
-			{16, 31 IF_SOFTWARE(, "IHL")},
-			{32, 47 IF_SOFTWARE(, "DSCP")},
-			{48, 63 IF_SOFTWARE(, "ECN")}
+			{0, 15 IF_SOFTWARE(, "Source Port")},
+			{16, 31 IF_SOFTWARE(, "Destination Port")},
+			{32, 47 IF_SOFTWARE(, "Length")},
+			{48, 63 IF_SOFTWARE(, "Checksum")}
 		},
 	},
 	{
@@ -109,11 +111,47 @@ const HeaderFormat<8, 4, uint_8, 1> UDPLayout
 		},
 	},
 	// Key position
-	std::pair<uint_16, uint_16>{0, 8},		// Invalid
+	std::pair<ap_uint<6>, ap_uint<6>>{0, 8},		// Invalid
 	// Last header
 	(true)
 	// Header Layout name
 	IF_SOFTWARE(, "UDP Layout")
+};
+
+// TCP frame layout
+const HeaderFormat<20, 10, uint8_t, 1, 32> TCPLayout
+{
+	// PHV mask
+	//("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
+	//("0xFFFFFFFF00000000000000000000000000000000"),	// Ports
+	(ap_uint<160>(~0)),	// All
+	{
+		// Header layout
+		{
+			{0, 15 IF_SOFTWARE(, "Source Port")},
+			{16, 31 IF_SOFTWARE(, "Destination Port")},
+			{32, 64 IF_SOFTWARE(, "Sequence Number")},
+			{64, 95 IF_SOFTWARE(, "ACK number")},
+			{96, 99 IF_SOFTWARE(, "Data Offset")},
+			{100, 105 IF_SOFTWARE(, "Unused")},
+			{106, 111 IF_SOFTWARE(, "Flags")},
+			{112, 127 IF_SOFTWARE(, "Window")},
+			{128, 143 IF_SOFTWARE(, "Checksum")},
+			{144, 159 IF_SOFTWARE(, "Urgent Pointer")}
+		},
+	},
+	{
+		// Keys
+		{
+			{0xFF, 0xFF, 0xFFFF IF_SOFTWARE(, "Last Header")},
+		},
+	},
+	// Key position
+	std::pair<ap_uint<6>, ap_uint<6>>{0, 8},		// Invalid
+	// Last header
+	(true)
+	// Header Layout name
+	IF_SOFTWARE(, "TCP Layout")
 };
 
 #endif //_PARSER_HEADER_TEMP_HPP_

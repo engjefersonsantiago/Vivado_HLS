@@ -14,53 +14,53 @@
 #define _PKT_BASICS_HPP_
 
 // Basic Field Format
+template<uint16_t N_Size>
 struct FieldFormat {
-	uint_16 Offset;
-	uint_16 Length;
+	ap_uint<numbits(bytes2Bits(N_Size))> Offset;
+	ap_uint<numbits(bytes2Bits(N_Size))> Length;
 	IF_SOFTWARE(std::string FieldName;)
 };
 
 // Parser match key structrure
-template<typename T_Key>
+template<typename T_Key, uint16_t N_MaxSuppHeaders>
 struct KeyFormat {
-	T_Key	KeyVal;
-	T_Key	KeyMask;
-	uint_16	NextHeader;
+	T_Key KeyVal;
+	T_Key KeyMask;
+	ap_uint<numbits(N_MaxSuppHeaders)> NextHeader;
 	IF_SOFTWARE(std::string NextHeaderName;)
 };
 
 // Basic Header Format structure
-template<uint_16 N_Size, uint_16 N_Fields, typename T_Key, uint_16 N_Key>
-class HeaderFormat {
-	public:
-	//const uint_16 Size = N_Size;
+template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, uint16_t N_MaxSuppHeaders>
+struct HeaderFormat {
 	ap_uint<bytes2Bits(N_Size)> PHVMask;
-	std::array<FieldFormat, N_Fields> Fields;
-	std::array<KeyFormat<T_Key>, N_Key> Key;
-	std::pair<uint_16, uint_16> KeyLocation;	// First: Offset. Second: Lenght
+	std::array<FieldFormat<N_Size>, N_Fields> Fields;
+	std::array<KeyFormat<T_Key, N_MaxSuppHeaders>, N_Key> Key;
+	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> KeyLocation;	// First: Offset. Second: Lenght
 	bool LastHeader;							// Last header: no transition
 	IF_SOFTWARE(std::string HeaderName;)
 };
 
 // Basic packet data type
-template<uint_16 N_BusSize>
+template<uint16_t N_BusSize, uint16_t N_MaxSuppHeaders, uint8_t N_MaxPktId>
 struct PacketData {
 	ap_uint<N_BusSize> Data;
-	uint_64 ID;
+	ap_uint<N_MaxPktId> ID;
 	bool Start;
 	bool Finish;
-	uint_16 HeaderID;
+	ap_uint<numbits(N_MaxSuppHeaders)> HeaderID;
 	PacketData() : Data{0}, ID{0}, Start{false}, Finish{false}, HeaderID{0} {}
 };
 
 // Basic PHV (packet header vector) type
-template<uint_16 N_Size>
+template<uint16_t N_Size, uint16_t N_MaxSuppHeaders, uint8_t N_MaxPktId>
 struct PHVData {
 	ap_uint<bytes2Bits(N_Size)> Data;
 	bool Valid;
-	uint_16 ID;
-	uint_64 PktID;
+	ap_uint<numbits(N_MaxSuppHeaders)> ID;
+	ap_uint<N_MaxPktId> PktID;
 	IF_SOFTWARE(std::string Name;)
+	//PHVData () : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
 };
 
 #endif //_PKT_BASICS_HPP_
