@@ -60,7 +60,7 @@ struct PHVData {
 	ap_uint<numbits(N_MaxSuppHeaders)> ID;
 	ap_uint<N_MaxPktId> PktID;
 	IF_SOFTWARE(std::string Name;)
-	//PHVData () : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
+	PHVData () : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
 };
 
 #endif //_PKT_BASICS_HPP_

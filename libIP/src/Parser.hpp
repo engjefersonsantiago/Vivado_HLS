@@ -41,7 +41,7 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, std::ar
 void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, std::array<PHVData<MAX_HEADER_SIZE, 32, 16>, HEADER_NUM>* PHV, PacketData<PKT_BUS_SIZE, 32, 16>* PacketOut);
 	#endif
 #else
-void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, PHVData<ETH_HEADER_SIZE, 32, 16>* Ethernet_PHV, PHVData<IP_HEADER_SIZE, 32, 16>* IP_PHV, PHVData<UDP_HEADER_SIZE, 32, 16>* UDP_PHV, PacketData<PKT_BUS_SIZE, 32, 16>* PacketOut);
+void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, PHVData<ETH_HEADER_SIZE, 32, 16>* Ethernet_PHV, PHVData<IP_HEADER_SIZE, 32, 16>* IP_PHV, PHVData<UDP_HEADER_SIZE, 32, 16>* UDP_PHV, PHVData<TCP_HEADER_SIZE, 32, 16>* TCP_PHV, PacketData<PKT_BUS_SIZE, 32, 16>* PacketOut);
 #endif
 
 #endif //_TST_HEADER_HPP_

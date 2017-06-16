@@ -242,6 +242,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 #pragma HLS DEPENDENCE variable=HeaderDone WAR false
 #pragma HLS DEPENDENCE variable=NextHeader WAR false
 
+	// New packet detection
 	if (PacketIn.Start && PacketIn.HeaderID == instance_id) {
 		IF_SOFTWARE(std::cout << "Received a new packet" << std::endl;)
 		HeaderIdle = false;
@@ -291,5 +292,14 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 			receivedBits+=N_BusSize;
 		}
 	}
+
+	// This is a test
+	//if (HeaderIdle) {
+	//	//This is a test
+	//	//*PacketOut = PacketIn;
+
+	//	PacketOutReg = PacketIn;
+	//	*PacketOut = PacketOutReg;
+	//}
 }
 #endif //_PKT_HEADER_HPP_
