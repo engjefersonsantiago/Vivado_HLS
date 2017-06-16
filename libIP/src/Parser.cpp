@@ -6,22 +6,16 @@
 #include "Parser.hpp"
 
 #ifdef ARRAY_FOR_PHV
-	#ifdef ARRAY_OF_POINTERS_TO_PHV
-void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, std::array<PHVData<MAX_HEADER_SIZE>*, HEADER_NUM> PHV, PacketData<PKT_BUS_SIZE, 32, 16>* PacketOut)
-	#else
-void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, std::array<PHVData<MAX_HEADER_SIZE, 32, 16>, HEADER_NUM>* PHV, PacketData<PKT_BUS_SIZE, 32, 16>* PacketOut)
-	#endif
+void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, std::array<PHVData<MAX_HEADER_SIZE, 32, 16>, HEADER_NUM>& PHV, PacketData<PKT_BUS_SIZE, 32, 16>& PacketOut)
 #else
-void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, PHVData<ETH_HEADER_SIZE, 32, 16>* Ethernet_PHV, PHVData<IP_HEADER_SIZE, 32, 16>* IP_PHV, PHVData<UDP_HEADER_SIZE, 32, 16>* UDP_PHV, PHVData<TCP_HEADER_SIZE, 32, 16>* TCP_PHV, PacketData<PKT_BUS_SIZE, 32, 16>* PacketOut)
+void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, PHVData<ETH_HEADER_SIZE, 32, 16>& Ethernet_PHV, PHVData<IP_HEADER_SIZE, 32, 16>& IP_PHV, PHVData<UDP_HEADER_SIZE, 32, 16>& UDP_PHV, PHVData<TCP_HEADER_SIZE, 32, 16>& TCP_PHV, PacketData<PKT_BUS_SIZE, 32, 16>& PacketOut)
 #endif
 {
 #pragma HLS INTERFACE ap_ctrl_none port=return
-//#pragma HLS INTERFACE register port=PacketIn
 #pragma HLS PIPELINE II=1
 
 #ifdef ARRAY_FOR_PHV
 #pragma HLS ARRAY_PARTITION variable=PHV dim=1
-//#pragma HLS INTERFACE ap_ovld port=PHV
 #else
 #pragma HLS INTERFACE ap_ovld port=Ethernet_PHV
 #pragma HLS INTERFACE ap_ovld port=IP_PHV
@@ -30,16 +24,13 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, PHVData
 #endif
 
 	// Wires
-	std::array<PHVData<MAX_HEADER_SIZE, 32, 16>, HEADER_NUM> tmpPHV;
-#pragma HLS ARRAY_PARTITION variable=tmpPHV dim=1
-#pragma HLS DEPENDENCE variable=tmpPHV false
 	std::array<PacketData<PKT_BUS_SIZE, 32, 16>, HEADER_NUM> tmpPacketOut;
 #pragma HLS ARRAY_PARTITION variable=tmpPacketOut dim=1
 #ifdef ARRAY_FOR_PHV
-	/*static*/ PHVData<ETH_HEADER_SIZE, 32, 16> Ethernet_PHV;
-	/*static*/ PHVData<IP_HEADER_SIZE, 32, 16> IP_PHV;
-	/*static*/ PHVData<UDP_HEADER_SIZE, 32, 16> UDP_PHV;
-	/*static*/ PHVData<TCP_HEADER_SIZE, 32, 16> TCP_PHV;
+	static PHVData<ETH_HEADER_SIZE, 32, 16> Ethernet_PHV;
+	static PHVData<IP_HEADER_SIZE, 32, 16> IP_PHV;
+	static PHVData<UDP_HEADER_SIZE, 32, 16> UDP_PHV;
+	static PHVData<TCP_HEADER_SIZE, 32, 16> TCP_PHV;
 #pragma HLS DEPENDENCE variable=Ethernet_PHV false
 #pragma HLS DEPENDENCE variable=IP_PHV false
 #pragma HLS DEPENDENCE variable=TCP_PHV false
@@ -58,52 +49,26 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, 32, 16>& PacketIn, PHVData
 		TCP(IF_SOFTWARE("TCP",) 21, TCPLayout);
 
 #ifdef ARRAY_FOR_PHV
-	Ethernet.HeaderAnalysis(PacketIn, &Ethernet_PHV /* &PHVData<ETH_HEADER_SIZE>((*PHV)[0]) */, &tmpPacketOut[0]); // Ça c'est que je veux
-	IPv4.HeaderAnalysis(tmpPacketOut[0], &IP_PHV, &tmpPacketOut[1]);
-	UDP.HeaderAnalysis(tmpPacketOut[1], &UDP_PHV, &tmpPacketOut[2]);
 
-	#ifdef ARRAY_OF_POINTERS_TO_PHV
-	PHV[0]->Data= ap_uint<MAX_HEADER_SIZE_BITS>(Ethernet_PHV.Data) & ap_uint<MAX_HEADER_SIZE_BITS>((1<<ETH_HEADER_SIZE) - 1);
-	PHV[0]->Valid = Ethernet_PHV.Valid;
-	PHV[0]->ID = Ethernet_PHV.ID;
-	PHV[0]->PktID = Ethernet_PHV.PktID;
-	IF_SOFTWARE(PHV[0]->Name = Ethernet_PHV.Name);		// Problem with Name
-	PHV[1]->Data= ap_uint<MAX_HEADER_SIZE_BITS>(IP_PHV.Data) & ap_uint<MAX_HEADER_SIZE_BITS>((1<<IP_HEADER_SIZE) - 1);
-	PHV[1]->Valid = IP_PHV.Valid;
-	PHV[1]->ID = IP_PHV.ID;
-	PHV[1]->PktID = IP_PHV.PktID;
-	IF_SOFTWARE(PHV[1]->Name = IP_PHV.Name);
-	PHV[2]->Data= ap_uint<MAX_HEADER_SIZE_BITS>(UDP_PHV.Data) & ap_uint<MAX_HEADER_SIZE_BITS>((1<<UDP_HEADER_SIZE) - 1);
-	PHV[2]->Valid = UDP_PHV.Valid;
-	PHV[2]->ID = UDP_PHV.ID;
-	PHV[2]->PktID = UDP_PHV.PktID;
-	IF_SOFTWARE(PHV[2]->Name = UDP_PHV.Name);
+	Ethernet.HeaderAnalysis(PacketIn, Ethernet_PHV, tmpPacketOut[0]);
+	PHV[0] = Ethernet_PHV;
 
-	#else
-	(*PHV)[0].Data= ap_uint<MAX_HEADER_SIZE_BITS>(Ethernet_PHV.Data);
-	(*PHV)[0].Valid = Ethernet_PHV.Valid;
-	(*PHV)[0].ID = Ethernet_PHV.ID;
-	(*PHV)[0].PktID = Ethernet_PHV.PktID;
-	IF_SOFTWARE((*PHV)[0].Name = Ethernet_PHV.Name);	// Problem with Name
-	(*PHV)[1].Data= ap_uint<MAX_HEADER_SIZE_BITS>(IP_PHV.Data);
-	(*PHV)[1].Valid = IP_PHV.Valid;
-	(*PHV)[1].ID = IP_PHV.ID;
-	(*PHV)[1].PktID = IP_PHV.PktID;
-	IF_SOFTWARE((*PHV)[1].Name = IP_PHV.Name);
-	(*PHV)[2].Data= ap_uint<MAX_HEADER_SIZE_BITS>(UDP_PHV.Data);
-	(*PHV)[2].Valid = UDP_PHV.Valid;
-	(*PHV)[2].ID = UDP_PHV.ID;
-	(*PHV)[2].PktID = UDP_PHV.PktID;
-	IF_SOFTWARE((*PHV)[2].Name = UDP_PHV.Name);
+	IPv4.HeaderAnalysis(tmpPacketOut[0], IP_PHV, tmpPacketOut[1]);
+	PHV[1] = IP_PHV;
 
-	#endif
+	UDP.HeaderAnalysis(tmpPacketOut[1], UDP_PHV, tmpPacketOut[2]);
+	PHV[2] = UDP_PHV;
+
+	TCP.HeaderAnalysis(tmpPacketOut[1], TCP_PHV, tmpPacketOut[3]);
+	PHV[3] = TCP_PHV;
+
 #else
-	Ethernet.HeaderAnalysis(PacketIn, Ethernet_PHV, &tmpPacketOut[0]);
-	IPv4.HeaderAnalysis(tmpPacketOut[0], IP_PHV, &tmpPacketOut[1]);
-	UDP.HeaderAnalysis(tmpPacketOut[1], UDP_PHV, &tmpPacketOut[2]);
-	TCP.HeaderAnalysis(tmpPacketOut[1], TCP_PHV, &tmpPacketOut[3]);
+	Ethernet.HeaderAnalysis(PacketIn, Ethernet_PHV, tmpPacketOut[0]);
+	IPv4.HeaderAnalysis(tmpPacketOut[0], IP_PHV, tmpPacketOut[1]);
+	UDP.HeaderAnalysis(tmpPacketOut[1], UDP_PHV, tmpPacketOut[2]);
+	TCP.HeaderAnalysis(tmpPacketOut[1], TCP_PHV, tmpPacketOut[3]);
 #endif
 
-	*PacketOut = tmpPacketOut[3];
+	PacketOut = tmpPacketOut[3];
 
 }

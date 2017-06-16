@@ -60,7 +60,21 @@ struct PHVData {
 	ap_uint<numbits(N_MaxSuppHeaders)> ID;
 	ap_uint<N_MaxPktId> PktID;
 	IF_SOFTWARE(std::string Name;)
-	PHVData () : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
+	//PHVData () : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
+	PHVData () {}
+	//PHVData (bool reset) : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// forced reset
+
+	template<uint16_t Diff_Size>
+	PHVData& operator= (const PHVData<Diff_Size, N_MaxSuppHeaders, N_MaxPktId> & Din)
+	{
+		this->Data = ap_uint<bytes2Bits(N_Size)>(Din.Data);
+		this->Valid = Din.Valid;
+		this->ID = Din.ID;
+		this->PktID = Din.PktID;
+		IF_SOFTWARE(this->Name = Din.Name;)
+		return *this;
+	}
+
 };
 
 #endif //_PKT_BASICS_HPP_
