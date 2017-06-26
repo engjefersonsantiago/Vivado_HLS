@@ -57,11 +57,12 @@ template<uint16_t N_Size, uint16_t N_MaxSuppHeaders, uint8_t N_MaxPktId>
 struct PHVData {
 	ap_uint<bytes2Bits(N_Size)> Data;
 	bool Valid;
+	bool ValidPulse;
 	ap_uint<numbits(N_MaxSuppHeaders)> ID;
 	ap_uint<N_MaxPktId> PktID;
 	IF_SOFTWARE(std::string Name;)
-	//PHVData () : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
-	PHVData () {}
+	PHVData () : Data{0}, Valid{false}, ValidPulse{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
+	//PHVData () {}
 	//PHVData (bool reset) : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// forced reset
 
 	template<uint16_t Diff_Size>

@@ -21,6 +21,9 @@
 // Macro to define the stuff data out size and the key shift
 #define STUFF_AND_SHIFT_SIZE_OP(A, B, C) (((A) < (B)) ? (B - C) : (B - (C%B)))
 
+// Needs to be defined to force packet bypass
+#define ENABLE_STATE_BYPASS
+
 #ifndef _PKT_HEADER_HPP_
 #define _PKT_HEADER_HPP_
 // Template Parameters:
@@ -181,10 +184,17 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 #pragma HLS ARRAY_PARTITION variable=shiftNumLookup dim=1
 
 	auto tmpShiftVal = N_BusSize*(receivedWords+1);	//Implemented as SR not mul
+	ExtractedHeaderType tmpDinlShifted;
 #if LOOKUPTABLE_FOR_SHIFT_CALC
-	auto tmpDinlShifted = ExtractedHeaderType(PacketIn.Data) << shiftNumLookup[receivedWords];
+	if (HEADER_SIZE_IN_BITS == N_BusSize)
+		tmpDinlShifted = PacketIn.Data;
+	else
+		tmpDinlShifted = ExtractedHeaderType(PacketIn.Data) << shiftNumLookup[receivedWords];
 #else
-	auto tmpDinlShifted = ExtractedHeaderType(PacketIn.Data) << (HEADER_SIZE_IN_BITS - tmpShiftVal);
+	if (HEADER_SIZE_IN_BITS == N_BusSize)
+		tmpDinlShifted = PacketIn.Data;
+	else
+		tmpDinlShifted = (ExtractedHeaderType(PacketIn.Data) << (HEADER_SIZE_IN_BITS - tmpShiftVal));
 #endif
 	ExtractedHeaderType tmpDinrShifted;
 	// Hope the tool simplifies it
@@ -195,9 +205,10 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 	IF_SOFTWARE(PHV.Name = instance_name;)
 	PHV.ID = instance_id;
 	PHV.PktID = PacketIn.ID;
-	HeaderDonePulse = false;
+	PHV.ValidPulse = HeaderDonePulse = false;
 
 	if (!HeaderDone) {
+		PHV.ValidPulse = PHV.Valid = HeaderDone;
 		if (receivedWords < RECEIVED_MAX_WORDS) {
 			if (HEADER_SIZE_IN_BITS > N_BusSize)  {
 				if (receivedWords == 0) {
@@ -222,12 +233,14 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 #endif
 			}
 		} else  {
+			std::cout << "receivedWords >= RECEIVED_MAX_WORDS  " <<receivedWords << std::endl;
+
 #if not ARRAY_FOR_SR
 			PHV.Data = ExtractedHeader & HeaderLayout.PHVMask;
 #else
 			PHV.Data = ExtractedHeaderPipe[receivedWords - 1] & HeaderLayout.PHVMask;
 #endif
-			PHV.Valid = HeaderDone = HeaderDonePulse = true;
+			PHV.ValidPulse = PHV.Valid = HeaderDone = HeaderDonePulse = true;
 			std::cout << "Extracted: " << std::dec << N_Size << " Bytes. PHV: " << std::hex << PHV.Data << std::endl;
 		}
 	}
@@ -242,10 +255,11 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 	//auto stuffSizeMask = ap_uint<DATAOUT_STUFF_SIZE>((ap_uint<DATAOUT_STUFF_SIZE+1>(1) << DATAOUT_STUFF_SIZE) - 1);
 	PacketOut.Data = (DATAOUT_STUFF_SHIFT == 0) ?
 					  T_DataBus(PacketIn.Data) :
-					  (((T_DataBus(PacketOutReg.Data) & stuffSizeMask) << DATAOUT_STUFF_SHIFT) | (T_DataBus(PacketIn.Data) >> DATAOUT_STUFF_SIZE));
+					  (((T_DataBus(PacketOutReg.Data) & stuffSizeMask) << DATAOUT_STUFF_SHIFT)
+							| (T_DataBus(PacketIn.Data) >> DATAOUT_STUFF_SIZE));
 	PacketOut.ID = PacketOutReg.ID;
 	PacketOut.Start = HeaderDonePulse;
-	PacketOut.Finish = PacketOutReg.Finish;
+	PacketOut.Finish = PacketIn.Finish;
 	PacketOut.HeaderID = NextHeader;
 	IF_SOFTWARE(std::cout << instance_name << " Packet Start Out: " << std::hex << PacketOut.Start << std::endl;)
 	IF_SOFTWARE(std::cout << instance_name << " Packet Finish Out: " << std::hex << PacketOut.Finish << std::endl;)
@@ -264,6 +278,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 #pragma HLS DEPENDENCE variable=NextHeaderValid WAR false
 #pragma HLS DEPENDENCE variable=HeaderDone WAR false
 #pragma HLS DEPENDENCE variable=NextHeader WAR false
+#pragma HLS PIPELINE II=1
 
 	// New packet detection
 	if (PacketIn.Start && PacketIn.HeaderID == instance_id) {
@@ -300,15 +315,11 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 			++receivedWords;
 			receivedBits+=N_BusSize;
 		}
+	} else {
+#ifdef ENABLE_STATE_BYPASS
+		PacketOut = PacketIn;
+#endif
 	}
 
-	// This is a test
-	//if (HeaderIdle) {
-	//	//This is a test
-	//	//*PacketOut = PacketIn;
-
-	//	PacketOutReg = PacketIn;
-	//	*PacketOut = PacketOutReg;
-	//}
 }
 #endif //_PKT_HEADER_HPP_

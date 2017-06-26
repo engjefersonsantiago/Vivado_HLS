@@ -13,145 +13,308 @@
 #ifndef _PARSER_HEADER_TEMP_HPP_
 #define _PARSER_HEADER_TEMP_HPP_
 
-// Ethernet frame layout
-const HeaderFormat<14, 3, uint16_t, 7, 32> EthernetLayout
+#define HEADER_NUM 10
+
+#define MAX_SUPP_HEADERS 10
+
+#define MAX_HEADER_SIZE 40
+
+#define MAX_HEADER_SIZE_BITS bytes2Bits(MAX_HEADER_SIZE)
+
+#define ETHERNET_HEADER_SIZE 14
+
+#define ETHERNET_HEADER_SIZE_BITS bytes2Bits(ETHERNET_HEADER_SIZE)
+
+#define ETHERNET_NUM_FIELDS 3
+
+const HeaderFormat<14, 3, ap_uint<16>, 5, MAX_SUPP_HEADERS> ethernet_t
 {
-	// PHV mask
-	//(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
-	//(ap_uint<112>(0)),	// None
-	(ap_uint<112>(~0)),		// All
+	(ap_uint<112>("5192296858534827628530496329220095")),
 	{
-		// Header layout
 		{
-			{0, 48 IF_SOFTWARE(, "Destination MAC")},
-			{48, 48 IF_SOFTWARE(, "Source MAC")},
-			{96, 16 IF_SOFTWARE(, "EtherType")}
+			{0, 48 IF_SOFTWARE(, "dstAddr")},
+			{48, 48 IF_SOFTWARE(, "srcAddr")},
+			{96, 16 IF_SOFTWARE(, "etherType")}
 		},
 	},
 	{
-		// Keys
 		{
-			{0x0800, 0xFFFF, 11 IF_SOFTWARE(, "IPv4")},
-			{0x86DD, 0xFFFF, 12 IF_SOFTWARE(, "IPv6")},
-			{0x0806, 0xFFFF, 13 IF_SOFTWARE(, "ARP")},
-			{0x8847, 0xFFFF, 14 IF_SOFTWARE(, "MPLS unicast")},
-			{0x8848, 0xFFFF, 15 IF_SOFTWARE(, "MPLS multicast")},
-			{0x8100, 0xFFFF, 16 IF_SOFTWARE(, "VLAN tagged single")},
-			{0x9100, 0xFFFF, 17 IF_SOFTWARE(, "VLAN tagged double")}
+			{0x0800, 65535, 6 IF_SOFTWARE(, "ipv4")},
+			{0x8100, 65535, 3 IF_SOFTWARE(, "inner_vlan")},
+			{0x9100, 65535, 2 IF_SOFTWARE(, "outer_vlan")},
+			{0x8847, 65535, 4 IF_SOFTWARE(, "outer_mpls")},
+			{0x86dd, 65535, 7 IF_SOFTWARE(, "ipv6")}
 		},
 	},
-	// Key position
-	std::pair<ap_uint<7>, ap_uint<7>>{96, 16},	// EtherType byte 12..14
-	// Last header
+	std::pair<ap_uint<7>, ap_uint<7>>{96,16},
 	(false)
-	// Header Layout name
-	IF_SOFTWARE(, "Ethernet Layout")
+	IF_SOFTWARE(, "ethernet_t")
 };
 
-// IPv4 frame layout
-const HeaderFormat<20, 13, uint8_t, 2, 32> IPv4Layout
+#define OUTER_VLAN_HEADER_SIZE 4
+
+#define OUTER_VLAN_HEADER_SIZE_BITS bytes2Bits(OUTER_VLAN_HEADER_SIZE)
+
+#define OUTER_VLAN_NUM_FIELDS 4
+
+const HeaderFormat<4, 4, ap_uint<16>, 1, MAX_SUPP_HEADERS> vlan_outer_t
 {
-	// PHV mask
-	//("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
-	//("0x00000000000000FF00000000FFFFFFFFFFFFFFFF"),	// Protocol and addresses
-	(ap_uint<160>(~0)),	// All
+	(ap_uint<32>("4294967295")),
 	{
-		// Header layout
 		{
-			{0, 3 IF_SOFTWARE(, "Version")},
-			{4, 7 IF_SOFTWARE(, "IHL")},
-			{8, 13 IF_SOFTWARE(, "DSCP")},
-			{14, 15 IF_SOFTWARE(, "ECN")},
-			{16, 31 IF_SOFTWARE(, "Total Length")},
-			{32, 47 IF_SOFTWARE(, "Identification")},
-			{48, 51 IF_SOFTWARE(, "Flags")},
-			{52, 63 IF_SOFTWARE(, "Fragment Offset")},
-			{64, 71 IF_SOFTWARE(, "TTL")},
-			{72, 79 IF_SOFTWARE(, "Protocol")},
-			{80, 95 IF_SOFTWARE(, "Header Checksum")},
-			{96, 127 IF_SOFTWARE(, "Source Address")},
-			{128, 159 IF_SOFTWARE(, "Destination Address")}
+			{0, 3 IF_SOFTWARE(, "PCP")},
+			{3, 1 IF_SOFTWARE(, "DEI")},
+			{4, 12 IF_SOFTWARE(, "VID")},
+			{16, 16 IF_SOFTWARE(, "etherType")}
 		},
 	},
 	{
-		// Keys
 		{
-			{0x06, 0xFF, 21 IF_SOFTWARE(, "TCP")},
-			{0x11, 0xFF, 22 IF_SOFTWARE(, "UDP")}
+			{0x8100, 65535, 3 IF_SOFTWARE(, "inner_vlan")}
 		},
 	},
-	// Key position
-	std::pair<ap_uint<8>, ap_uint<8>>{72, 8},		// Protocol
-	// Last header
+	std::pair<ap_uint<6>, ap_uint<6>>{16,16},
 	(false)
-	// Header Layout name
-	IF_SOFTWARE(, "IPv4 Layout")
+	IF_SOFTWARE(, "vlan_outer_t")
 };
 
-// UDP frame layout
-const HeaderFormat<8, 4, uint8_t, 1, 32> UDPLayout
+#define INNER_VLAN_HEADER_SIZE 4
+
+#define INNER_VLAN_HEADER_SIZE_BITS bytes2Bits(INNER_VLAN_HEADER_SIZE)
+
+#define INNER_VLAN_NUM_FIELDS 4
+
+const HeaderFormat<4, 4, ap_uint<16>, 2, MAX_SUPP_HEADERS> vlan_inner_t
 {
-	// PHV mask
-	//(0xFFFFFFFFFFFFFFFF),
-	//("0xFFFFFFFF00000000"),	// Ports
-	(ap_uint<64>(~0)),	// All
+	(ap_uint<32>("4294967295")),
 	{
-		// Header layout
 		{
-			{0, 15 IF_SOFTWARE(, "Source Port")},
-			{16, 31 IF_SOFTWARE(, "Destination Port")},
-			{32, 47 IF_SOFTWARE(, "Length")},
-			{48, 63 IF_SOFTWARE(, "Checksum")}
+			{0, 3 IF_SOFTWARE(, "PCP")},
+			{3, 1 IF_SOFTWARE(, "DEI")},
+			{4, 12 IF_SOFTWARE(, "VID")},
+			{16, 16 IF_SOFTWARE(, "etherType")}
 		},
 	},
 	{
-		// Keys
 		{
-			{0xFF, 0xFF, 0xFFFF IF_SOFTWARE(, "Last Header")},
+			{0x0800, 65535, 6 IF_SOFTWARE(, "ipv4")},
+			{0x86dd, 65535, 7 IF_SOFTWARE(, "ipv6")}
 		},
 	},
-	// Key position
-	std::pair<ap_uint<6>, ap_uint<6>>{0, 8},		// Invalid
-	// Last header
-	(true)
-	// Header Layout name
-	IF_SOFTWARE(, "UDP Layout")
+	std::pair<ap_uint<6>, ap_uint<6>>{16,16},
+	(false)
+	IF_SOFTWARE(, "vlan_inner_t")
 };
 
-// TCP frame layout
-const HeaderFormat<20, 10, uint8_t, 1, 32> TCPLayout
+#define OUTER_MPLS_HEADER_SIZE 4
+
+#define OUTER_MPLS_HEADER_SIZE_BITS bytes2Bits(OUTER_MPLS_HEADER_SIZE)
+
+#define OUTER_MPLS_NUM_FIELDS 4
+
+const HeaderFormat<4, 4, ap_uint<3>, 1, MAX_SUPP_HEADERS> mpls_outer_t
 {
-	// PHV mask
-	//("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"),
-	//("0xFFFFFFFF00000000000000000000000000000000"),	// Ports
-	(ap_uint<160>(~0)),	// All
+	(ap_uint<32>("4294967295")),
 	{
-		// Header layout
 		{
-			{0, 15 IF_SOFTWARE(, "Source Port")},
-			{16, 31 IF_SOFTWARE(, "Destination Port")},
-			{32, 64 IF_SOFTWARE(, "Sequence Number")},
-			{64, 95 IF_SOFTWARE(, "ACK number")},
-			{96, 99 IF_SOFTWARE(, "Data Offset")},
-			{100, 105 IF_SOFTWARE(, "Unused")},
-			{106, 111 IF_SOFTWARE(, "Flags")},
-			{112, 127 IF_SOFTWARE(, "Window")},
-			{128, 143 IF_SOFTWARE(, "Checksum")},
-			{144, 159 IF_SOFTWARE(, "Urgent Pointer")}
+			{0, 20 IF_SOFTWARE(, "label")},
+			{20, 3 IF_SOFTWARE(, "TC")},
+			{23, 1 IF_SOFTWARE(, "S")},
+			{24, 8 IF_SOFTWARE(, "TTL")}
 		},
 	},
 	{
-		// Keys
 		{
-			{0xFF, 0xFF, 0xFFFF IF_SOFTWARE(, "Last Header")},
+			{0x00, 7, 5 IF_SOFTWARE(, "inner_mpls")}
 		},
 	},
-	// Key position
-	std::pair<ap_uint<6>, ap_uint<6>>{0, 8},		// Invalid
-	// Last header
+	std::pair<ap_uint<6>, ap_uint<6>>{20,3},
+	(false)
+	IF_SOFTWARE(, "mpls_outer_t")
+};
+
+#define INNER_MPLS_HEADER_SIZE 4
+
+#define INNER_MPLS_HEADER_SIZE_BITS bytes2Bits(INNER_MPLS_HEADER_SIZE)
+
+#define INNER_MPLS_NUM_FIELDS 4
+
+const HeaderFormat<4, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> mpls_inner_t
+{
+	(ap_uint<32>("4294967295")),
+	{
+		{
+			{0, 20 IF_SOFTWARE(, "label")},
+			{20, 3 IF_SOFTWARE(, "TC")},
+			{23, 1 IF_SOFTWARE(, "S")},
+			{24, 8 IF_SOFTWARE(, "TTL")}
+		},
+	},
+	{
+		{
+			{1, 1, 0 IF_SOFTWARE(, "Last Header")}
+		},
+	},
+	std::pair<ap_uint<6>, ap_uint<6>>{0,1},
 	(true)
-	// Header Layout name
-	IF_SOFTWARE(, "TCP Layout")
+	IF_SOFTWARE(, "mpls_inner_t")
+};
+
+#define IPV4_HEADER_SIZE 20
+
+#define IPV4_HEADER_SIZE_BITS bytes2Bits(IPV4_HEADER_SIZE)
+
+#define IPV4_NUM_FIELDS 12
+
+const HeaderFormat<20, 12, ap_uint<8>, 3, MAX_SUPP_HEADERS> ipv4_t
+{
+	(ap_uint<160>("1461501637330902918203684832716283019655932542975")),
+	{
+		{
+			{0, 4 IF_SOFTWARE(, "version")},
+			{4, 4 IF_SOFTWARE(, "ihl")},
+			{8, 8 IF_SOFTWARE(, "diffserv")},
+			{16, 16 IF_SOFTWARE(, "totalLen")},
+			{32, 16 IF_SOFTWARE(, "identification")},
+			{48, 3 IF_SOFTWARE(, "flags")},
+			{51, 13 IF_SOFTWARE(, "fragOffset")},
+			{64, 8 IF_SOFTWARE(, "ttl")},
+			{72, 8 IF_SOFTWARE(, "protocol")},
+			{80, 16 IF_SOFTWARE(, "hdrChecksum")},
+			{96, 32 IF_SOFTWARE(, "srcAddr")},
+			{128, 32 IF_SOFTWARE(, "dstAddr")}
+		},
+	},
+	{
+		{
+			{0x01, 255, 10 IF_SOFTWARE(, "icmp")},
+			{0x11, 255, 8 IF_SOFTWARE(, "udp")},
+			{0x06, 255, 9 IF_SOFTWARE(, "tcp")}
+		},
+	},
+	std::pair<ap_uint<8>, ap_uint<8>>{72,8},
+	(false)
+	IF_SOFTWARE(, "ipv4_t")
+};
+
+#define IPV6_HEADER_SIZE 40
+
+#define IPV6_HEADER_SIZE_BITS bytes2Bits(IPV6_HEADER_SIZE)
+
+#define IPV6_NUM_FIELDS 8
+
+const HeaderFormat<40, 8, ap_uint<8>, 3, MAX_SUPP_HEADERS> ipv6_t
+{
+	(ap_uint<320>("2135987035920910082395021706169552114602704522356652769947041607822219725780640550022962086936575")),
+	{
+		{
+			{0, 4 IF_SOFTWARE(, "version")},
+			{4, 8 IF_SOFTWARE(, "trafficClass")},
+			{12, 20 IF_SOFTWARE(, "flowLabel")},
+			{32, 16 IF_SOFTWARE(, "payloadLen")},
+			{48, 8 IF_SOFTWARE(, "nextHdr")},
+			{56, 8 IF_SOFTWARE(, "hopLimit")},
+			{64, 128 IF_SOFTWARE(, "srcAddr")},
+			{192, 128 IF_SOFTWARE(, "dstAddr")}
+		},
+	},
+	{
+		{
+			{0x3a, 255, 10 IF_SOFTWARE(, "icmp")},
+			{0x11, 255, 8 IF_SOFTWARE(, "udp")},
+			{0x06, 255, 9 IF_SOFTWARE(, "tcp")}
+		},
+	},
+	std::pair<ap_uint<9>, ap_uint<9>>{48,8},
+	(false)
+	IF_SOFTWARE(, "ipv6_t")
+};
+
+#define UDP_HEADER_SIZE 8
+
+#define UDP_HEADER_SIZE_BITS bytes2Bits(UDP_HEADER_SIZE)
+
+#define UDP_NUM_FIELDS 4
+
+const HeaderFormat<8, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> udp_t
+{
+	(ap_uint<64>("18446744073709551615")),
+	{
+		{
+			{0, 16 IF_SOFTWARE(, "srcPort")},
+			{16, 16 IF_SOFTWARE(, "dstPort")},
+			{32, 16 IF_SOFTWARE(, "hdrLength")},
+			{48, 16 IF_SOFTWARE(, "chksum")}
+		},
+	},
+	{
+		{
+			{1, 1, 0 IF_SOFTWARE(, "Last Header")}
+		},
+	},
+	std::pair<ap_uint<7>, ap_uint<7>>{0,1},
+	(true)
+	IF_SOFTWARE(, "udp_t")
+};
+
+#define TCP_HEADER_SIZE 20
+
+#define TCP_HEADER_SIZE_BITS bytes2Bits(TCP_HEADER_SIZE)
+
+#define TCP_NUM_FIELDS 10
+
+const HeaderFormat<20, 10, ap_uint<1>, 1, MAX_SUPP_HEADERS> tcp_t
+{
+	(ap_uint<160>("1461501637330902918203684832716283019655932542975")),
+	{
+		{
+			{0, 16 IF_SOFTWARE(, "srcPort")},
+			{16, 16 IF_SOFTWARE(, "dstPort")},
+			{32, 32 IF_SOFTWARE(, "seqNum")},
+			{64, 32 IF_SOFTWARE(, "ackNum")},
+			{96, 4 IF_SOFTWARE(, "dataOffset")},
+			{100, 6 IF_SOFTWARE(, "unused")},
+			{106, 6 IF_SOFTWARE(, "flags")},
+			{112, 16 IF_SOFTWARE(, "windowSize")},
+			{128, 16 IF_SOFTWARE(, "chksum")},
+			{144, 16 IF_SOFTWARE(, "urgPtr")}
+		},
+	},
+	{
+		{
+			{1, 1, 0 IF_SOFTWARE(, "Last Header")}
+		},
+	},
+	std::pair<ap_uint<8>, ap_uint<8>>{0,1},
+	(true)
+	IF_SOFTWARE(, "tcp_t")
+};
+
+#define ICMP_HEADER_SIZE 6
+
+#define ICMP_HEADER_SIZE_BITS bytes2Bits(ICMP_HEADER_SIZE)
+
+#define ICMP_NUM_FIELDS 4
+
+const HeaderFormat<6, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> icmp_t
+{
+	(ap_uint<48>("281474976710655")),
+	{
+		{
+			{0, 8 IF_SOFTWARE(, "mtype")},
+			{8, 8 IF_SOFTWARE(, "code")},
+			{16, 16 IF_SOFTWARE(, "chksum")},
+			{32, 16 IF_SOFTWARE(, "body")}
+		},
+	},
+	{
+		{
+			{1, 1, 0 IF_SOFTWARE(, "Last Header")}
+		},
+	},
+	std::pair<ap_uint<6>, ap_uint<6>>{0,1},
+	(true)
+	IF_SOFTWARE(, "icmp_t")
 };
 
 #endif //_PARSER_HEADER_TEMP_HPP_
