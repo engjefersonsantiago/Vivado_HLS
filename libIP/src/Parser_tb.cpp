@@ -5,6 +5,8 @@
 
 #include "Parser.hpp"
 
+#define IPV4_HEADER_SIZE IPV4_VAR_HEADER_SIZE 
+
 int main () {
 
 	std::array<PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, 5> Packet;
@@ -102,8 +104,13 @@ int main () {
 	Packet[3].Data = "0x80000c9200000101080a5c36e4f102b1";
 	Packet[4].Data = "0x49610000000000000000000000000000";
 #elif PKT_BUS_SIZE == 256
-	Packet[0].Data = "0x001C0F090010001C0F5CA2830800450000DCD4310000F51117DF592E651FC45F";
-	Packet[1].Data = "0x46539F74007B00C800001700032A0000aabbccddeeff00112233445566778899";
+	//Packet[0].Data = "0x001C0F090010001C0F5CA2830800450000DCD4310000F51117DF592E651FC45F";
+	//Packet[1].Data = "0x46539F74007B00C800001700032A0000aabbccddeeff00112233445566778899";
+
+	Packet[0].Data = "0x001C0F090010001C0F5CA283080045000034c0b90000f606ba2384cf0306c0a8";
+	Packet[1].Data = "0x016901bbe96863826efbd36e81f9801080000c9200000101080a5c36e4f102b1";
+	Packet[2].Data = "0x4961000000000000000000000000000080000c9200000101080a5c36e4f102b1";
+
 #elif PKT_BUS_SIZE == 320
 	//Packet[0].Data = "0x001C0F090010001C0F5CA2830800450000DCD4310000F51117DF592E651FC45F46539F74007B00C8";
 	//Packet[1].Data = "0x00001700032A0000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -184,10 +191,11 @@ int main () {
 		if(IF_SOFTWARE(IP_PHV[j].Valid or) IP_PHV[j].ValidPulse) {
 			std::cout << IP_PHV[j].Name << " PHV: " << std::hex << IP_PHV[j].Data << std::endl;
 			std::cout << IP_PHV[j].Name << " PHV Valid: " << std::dec << IP_PHV[j].Valid << std::endl;
+			std::cout << IP_PHV[j].Name << " PHV Extracted Bits: " << std::dec << IP_PHV[j].ExtractedBitNum << std::endl;
 			std::cout << IP_PHV[j].Name << " PHV ValidPulse: " << std::dec << IP_PHV[j].ValidPulse << std::endl;
 			std::cout << IP_PHV[j].Name << " PHV ID: " << std::dec << IP_PHV[j].ID << std::endl;
 			std::cout << IP_PHV[j].Name << " PHV Packet ID: " << std::dec << IP_PHV[j].PktID << std::endl;
-			if (ExpIP_PHV.Data != IP_PHV[j].Data) {
+			if (ExpIP_PHV.Data != IP_PHV[j].Data >> (8*IPV4_VAR_HEADER_SIZE - IP_PHV[j].ExtractedBitNum)) {
 				std::cout << "IP Test ERROR!!!" << std::endl;
 				return -1;
 			}

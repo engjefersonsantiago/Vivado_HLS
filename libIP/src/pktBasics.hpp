@@ -39,6 +39,10 @@ struct HeaderFormat {
 	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> KeyLocation;	// First: Offset. Second: Lenght
 	bool LastHeader;							// Last header: no transition
 	IF_SOFTWARE(std::string HeaderName;)
+	bool varSizeHeader;							// Variable size header flag
+	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd;	// First: Offset. Second: Lenght
+	// For fixed sized headers. Needs to be redefined for variable sizes
+	void getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, const ap_uint<numbits(bytes2Bits(N_Size))>& expr_val) {size = bytes2Bits(N_Size);}
 };
 
 // Basic packet data type
@@ -56,14 +60,13 @@ struct PacketData {
 template<uint16_t N_Size, uint16_t N_MaxSuppHeaders, uint8_t N_MaxPktId>
 struct PHVData {
 	ap_uint<bytes2Bits(N_Size)> Data;
+	ap_uint<numbits(bytes2Bits(N_Size))> ExtractedBitNum;
 	bool Valid;
 	bool ValidPulse;
 	ap_uint<numbits(N_MaxSuppHeaders)> ID;
 	ap_uint<N_MaxPktId> PktID;
 	IF_SOFTWARE(std::string Name;)
-	PHVData () : Data{0}, Valid{false}, ValidPulse{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
-	//PHVData () {}
-	//PHVData (bool reset) : Data{0}, Valid{false}, ID{0}, PktID{0} {}	// forced reset
+	PHVData () : Data{0}, ExtractedBitNum{0}, Valid{false}, ValidPulse{false}, ID{0}, PktID{0} {}	// Not good for non-static vars (wires)
 
 	template<uint16_t Diff_Size>
 	PHVData& operator= (const PHVData<Diff_Size, N_MaxSuppHeaders, N_MaxPktId> & Din)

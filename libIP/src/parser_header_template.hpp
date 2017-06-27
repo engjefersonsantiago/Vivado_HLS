@@ -17,7 +17,7 @@
 
 #define MAX_SUPP_HEADERS 10
 
-#define MAX_HEADER_SIZE 40
+#define MAX_HEADER_SIZE 60
 
 #define MAX_HEADER_SIZE_BITS bytes2Bits(MAX_HEADER_SIZE)
 
@@ -39,7 +39,7 @@ const HeaderFormat<14, 3, ap_uint<16>, 5, MAX_SUPP_HEADERS> ethernet_t
 	},
 	{
 		{
-			{0x0800, 65535, 6 IF_SOFTWARE(, "ipv4")},
+			{0x0800, 65535, 6 IF_SOFTWARE(, "ipv4_var")},
 			{0x8100, 65535, 3 IF_SOFTWARE(, "inner_vlan")},
 			{0x9100, 65535, 2 IF_SOFTWARE(, "outer_vlan")},
 			{0x8847, 65535, 4 IF_SOFTWARE(, "outer_mpls")},
@@ -47,8 +47,9 @@ const HeaderFormat<14, 3, ap_uint<16>, 5, MAX_SUPP_HEADERS> ethernet_t
 		},
 	},
 	std::pair<ap_uint<7>, ap_uint<7>>{96,16},
-	(false)
-	IF_SOFTWARE(, "ethernet_t")
+	(false),
+	IF_SOFTWARE("ethernet_t",)
+	(false),
 };
 
 #define OUTER_VLAN_HEADER_SIZE 4
@@ -74,8 +75,9 @@ const HeaderFormat<4, 4, ap_uint<16>, 1, MAX_SUPP_HEADERS> vlan_outer_t
 		},
 	},
 	std::pair<ap_uint<6>, ap_uint<6>>{16,16},
-	(false)
-	IF_SOFTWARE(, "vlan_outer_t")
+	(false),
+	IF_SOFTWARE("vlan_outer_t",)
+	(false),
 };
 
 #define INNER_VLAN_HEADER_SIZE 4
@@ -97,13 +99,14 @@ const HeaderFormat<4, 4, ap_uint<16>, 2, MAX_SUPP_HEADERS> vlan_inner_t
 	},
 	{
 		{
-			{0x0800, 65535, 6 IF_SOFTWARE(, "ipv4")},
+			{0x0800, 65535, 6 IF_SOFTWARE(, "ipv4_var")},
 			{0x86dd, 65535, 7 IF_SOFTWARE(, "ipv6")}
 		},
 	},
 	std::pair<ap_uint<6>, ap_uint<6>>{16,16},
-	(false)
-	IF_SOFTWARE(, "vlan_inner_t")
+	(false),
+	IF_SOFTWARE("vlan_inner_t",)
+	(false),
 };
 
 #define OUTER_MPLS_HEADER_SIZE 4
@@ -129,8 +132,9 @@ const HeaderFormat<4, 4, ap_uint<3>, 1, MAX_SUPP_HEADERS> mpls_outer_t
 		},
 	},
 	std::pair<ap_uint<6>, ap_uint<6>>{20,3},
-	(false)
-	IF_SOFTWARE(, "mpls_outer_t")
+	(false),
+	IF_SOFTWARE("mpls_outer_t",)
+	(false),
 };
 
 #define INNER_MPLS_HEADER_SIZE 4
@@ -156,19 +160,34 @@ const HeaderFormat<4, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> mpls_inner_t
 		},
 	},
 	std::pair<ap_uint<6>, ap_uint<6>>{0,1},
-	(true)
-	IF_SOFTWARE(, "mpls_inner_t")
+	(true),
+	IF_SOFTWARE("mpls_inner_t",)
+	(false),
 };
 
-#define IPV4_HEADER_SIZE 20
+#define IPV4_VAR_HEADER_SIZE 60
 
-#define IPV4_HEADER_SIZE_BITS bytes2Bits(IPV4_HEADER_SIZE)
+#define IPV4_VAR_HEADER_SIZE_BITS bytes2Bits(IPV4_VAR_HEADER_SIZE)
 
-#define IPV4_NUM_FIELDS 12
+#define IPV4_VAR_NUM_FIELDS 13
+template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, uint16_t N_MaxSuppHeaders> 
+struct ipv4_varHeaderFormat { 
+	ap_uint<bytes2Bits(N_Size)> PHVMask; 
+	std::array<FieldFormat<N_Size>, N_Fields> Fields; 
+	std::array<KeyFormat<T_Key, N_MaxSuppHeaders>, N_Key> Key; 
+	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> KeyLocation; 
+	bool LastHeader;
+	IF_SOFTWARE(std::string HeaderName;)
+	bool varSizeHeader;
+	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd;
+	void getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, const ap_uint<4>& ihl) {
+		size = ((0x4*ihl)*0x8);
+	}
+};
 
-const HeaderFormat<20, 12, ap_uint<8>, 3, MAX_SUPP_HEADERS> ipv4_t
+const ipv4_varHeaderFormat<60, 13, ap_uint<8>, 3, MAX_SUPP_HEADERS> ipv4_var_t
 {
-	(ap_uint<160>("1461501637330902918203684832716283019655932542975")),
+	(ap_uint<480>("3121748550315992231381597229793166305748598142664971150859156959625371738819765620120306103063491971159826931121406622895447975679288285306290175")),
 	{
 		{
 			{0, 4 IF_SOFTWARE(, "version")},
@@ -182,7 +201,8 @@ const HeaderFormat<20, 12, ap_uint<8>, 3, MAX_SUPP_HEADERS> ipv4_t
 			{72, 8 IF_SOFTWARE(, "protocol")},
 			{80, 16 IF_SOFTWARE(, "hdrChecksum")},
 			{96, 32 IF_SOFTWARE(, "srcAddr")},
-			{128, 32 IF_SOFTWARE(, "dstAddr")}
+			{128, 32 IF_SOFTWARE(, "dstAddr")},
+			{160, 320 IF_SOFTWARE(, "options")}
 		},
 	},
 	{
@@ -192,9 +212,11 @@ const HeaderFormat<20, 12, ap_uint<8>, 3, MAX_SUPP_HEADERS> ipv4_t
 			{0x06, 255, 9 IF_SOFTWARE(, "tcp")}
 		},
 	},
-	std::pair<ap_uint<8>, ap_uint<8>>{72,8},
-	(false)
-	IF_SOFTWARE(, "ipv4_t")
+	std::pair<ap_uint<9>, ap_uint<9>>{72,8},
+	(false),
+	IF_SOFTWARE("ipv4_var_t",)
+	(true),
+	std::pair<ap_uint<9>, ap_uint<9>>{4,4}
 };
 
 #define IPV6_HEADER_SIZE 40
@@ -226,8 +248,9 @@ const HeaderFormat<40, 8, ap_uint<8>, 3, MAX_SUPP_HEADERS> ipv6_t
 		},
 	},
 	std::pair<ap_uint<9>, ap_uint<9>>{48,8},
-	(false)
-	IF_SOFTWARE(, "ipv6_t")
+	(false),
+	IF_SOFTWARE("ipv6_t",)
+	(false),
 };
 
 #define UDP_HEADER_SIZE 8
@@ -253,8 +276,9 @@ const HeaderFormat<8, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> udp_t
 		},
 	},
 	std::pair<ap_uint<7>, ap_uint<7>>{0,1},
-	(true)
-	IF_SOFTWARE(, "udp_t")
+	(true),
+	IF_SOFTWARE("udp_t",)
+	(false),
 };
 
 #define TCP_HEADER_SIZE 20
@@ -286,8 +310,9 @@ const HeaderFormat<20, 10, ap_uint<1>, 1, MAX_SUPP_HEADERS> tcp_t
 		},
 	},
 	std::pair<ap_uint<8>, ap_uint<8>>{0,1},
-	(true)
-	IF_SOFTWARE(, "tcp_t")
+	(true),
+	IF_SOFTWARE("tcp_t",)
+	(false),
 };
 
 #define ICMP_HEADER_SIZE 6
@@ -313,8 +338,9 @@ const HeaderFormat<6, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> icmp_t
 		},
 	},
 	std::pair<ap_uint<6>, ap_uint<6>>{0,1},
-	(true)
-	IF_SOFTWARE(, "icmp_t")
+	(true),
+	IF_SOFTWARE("icmp_t",)
+	(false),
 };
 
 #endif //_PARSER_HEADER_TEMP_HPP_

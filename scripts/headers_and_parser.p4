@@ -2,6 +2,7 @@
  * Jeferson Santiago da Silva
  */
 
+#define TEST_VAR_HEADER 1
 #define TESTABLE 0
 
 // Ethernet
@@ -76,6 +77,27 @@ header_type ipv4_t {
     }
 }
 
+// IP header
+header_type ipv4_var_t {
+    fields {
+        bit<4>  version;
+        bit<4>  ihl;
+        bit<8>  diffserv;
+        bit<16> totalLen;
+        bit<16> identification;
+        bit<3> flags;
+        bit<13> fragOffset;
+        bit<8>  ttl;
+        bit<8>  protocol;
+        bit<16> hdrChecksum;
+        bit<32> srcAddr;
+        bit<32> dstAddr;
+		varbit<320> options;
+    }
+	length : 4*ihl;
+}
+
+
 header_type ipv6_t {
     fields {
         bit<4> version;
@@ -135,7 +157,11 @@ header mpls_outer_t outer_mpls;
 header mpls_inner_t inner_mpls;
 header icmp_t icmp;
 #endif
+#if TEST_VAR_HEADER ==0
 header ipv4_t ipv4;
+#else
+header ipv4_var_t ipv4_var;
+#endif
 header ipv6_t ipv6;
 header udp_t udp;
 header tcp_t tcp;
@@ -147,7 +173,11 @@ parser start {
 parser parse_ethernet {
     extract(ethernet);
     return select(ethernet.etherType) {
+#if TEST_VAR_HEADER
+        0x0800    : parse_ipv4_var;
+#else
         0x0800    : parse_ipv4;
+#endif
 #if TESTABLE
         0x8100    : parse_vlan;
 #else
@@ -164,7 +194,11 @@ parser parse_ethernet {
 parser parse_vlan {
     extract(vlan);
     return select(vlan.etherType) {
+#if TEST_VAR_HEADER
+        0x0800    : parse_ipv4_var;
+#else
         0x0800    : parse_ipv4;
+#endif
         0x86DD    : parse_ipv6;
         default   : ingress;
     }
@@ -182,7 +216,11 @@ parser parse_outer_vlan {
 parser parse_inner_vlan {
     extract(inner_vlan);
     return select(inner_vlan.etherType) {
+#if TEST_VAR_HEADER
+        0x0800    : parse_ipv4_var;
+#else
         0x0800    : parse_ipv4;
+#endif
         0x86DD    : parse_ipv6;
         default   : ingress;
     }
@@ -202,6 +240,7 @@ parser parse_inner_mpls {
 }
 #endif
 
+#if TEST_VAR_HEADER == 0
 parser parse_ipv4 {
     extract(ipv4);
     return select(ipv4.protocol){
@@ -213,6 +252,20 @@ parser parse_ipv4 {
         default   : ingress;
     }
 }
+
+#else
+parser parse_ipv4_var {
+    extract(ipv4_var);
+    return select(ipv4_var.protocol){
+#if TESTABLE == 0
+        0x01      : parse_icmp;
+#endif
+        0x11      : parse_udp;
+        0x06      : parse_tcp;
+        default   : ingress;
+    }
+}
+#endif
 
 parser parse_ipv6 {
     extract(ipv6);
@@ -243,6 +296,7 @@ parser parse_icmp {
 }
 #endif
 
+#if TEST_VAR_HEADER == 0
 field_list ipv4_checksum_list {
     ipv4.version;
     ipv4.ihl;
@@ -256,6 +310,7 @@ field_list ipv4_checksum_list {
     ipv4.srcAddr;
     ipv4.dstAddr;
 }
+#endif
 
 control ingress {
 }
