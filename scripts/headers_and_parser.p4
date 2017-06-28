@@ -3,7 +3,7 @@
  */
 
 #define TEST_VAR_HEADER 1
-#define TESTABLE 0
+#define TESTABLE 1
 
 // Ethernet
 header_type ethernet_t {
@@ -97,7 +97,7 @@ header_type ipv4_var_t {
 	length : 4*ihl;
 }
 
-
+// IPv6
 header_type ipv6_t {
     fields {
         bit<4> version;
@@ -109,6 +109,30 @@ header_type ipv6_t {
         bit<128> srcAddr;
         bit<128> dstAddr;
     }
+}
+
+// IPv6 extension #1
+header_type ipv6_ext_1_t {
+    fields {
+        bit<8> nextHdr;
+        bit<8> totalLen;
+        bit<16> stuff;
+		varbit<224> options;
+    }
+	length : 8*(totalLen + 1);
+	//length : 8*totalLen + 8;
+}
+
+// IPv6 extension #2
+header_type ipv6_ext_2_t {
+    fields {
+        bit<8> nextHdr;
+        bit<8> totalLen;
+        bit<16> stuff;
+		varbit<224> options;
+    }
+	length : 8*(totalLen + 1);
+	//length : 8*totalLen + 8;
 }
 
 // UDP header
@@ -155,6 +179,8 @@ header vlan_outer_t outer_vlan;
 header vlan_inner_t inner_vlan;
 header mpls_outer_t outer_mpls;
 header mpls_inner_t inner_mpls;
+header ipv6_ext_1_t ipv6_ext_1;
+header ipv6_ext_2_t ipv6_ext_2;
 header icmp_t icmp;
 #endif
 #if TEST_VAR_HEADER ==0
@@ -271,6 +297,8 @@ parser parse_ipv6 {
     extract(ipv6);
     return select(ipv6.nextHdr){
 #if TESTABLE == 0
+		0x00	  : parse_ipv6_ext_1;
+		0x3c   	  : parse_ipv6_ext_1;
         0x3a      : parse_icmp;
 #endif
         0x11      : parse_udp;
@@ -290,6 +318,25 @@ parser parse_tcp {
 }
 
 #if TESTABLE == 0
+parser parse_ipv6_ext_1 {
+    extract(ipv6_ext_1);
+    return select(ipv6_ext_1.nextHdr){
+		0x3c   	  : parse_ipv6_ext_2;
+        0x11      : parse_udp;
+        0x06      : parse_tcp;
+        default   : ingress;
+    }    
+}
+
+parser parse_ipv6_ext_2 {
+    extract(ipv6_ext_2);
+    return select(ipv6_ext_2.nextHdr){
+        0x11      : parse_udp;
+        0x06      : parse_tcp;
+        default   : ingress;
+    }    
+}
+
 parser parse_icmp {
     extract(icmp);
     return ingress;

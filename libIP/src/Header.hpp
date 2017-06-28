@@ -44,6 +44,7 @@ template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, typ
 class Header {
     private:
 		// Defines here to fix template parameters passage
+		static constexpr uint16_t BUS_SIZE_LENGTH = numbits(N_BusSize);
 		static constexpr uint16_t HEADER_SIZE_IN_BITS = bytes2Bits(N_Size);
 		static constexpr uint16_t PKT_SIZE_IN_BITS = bytes2Bits(N_MaxPktSize);
 		static constexpr uint16_t DATAOUT_STUFF_SIZE = STUFF_AND_SHIFT_SIZE_OP(HEADER_SIZE_IN_BITS, N_BusSize, HEADER_SIZE_IN_BITS);
@@ -139,9 +140,9 @@ class Header {
 		IF_SOFTWARE(const std::string getInstName() const {return instance_name;})
         headerIDType getInstId() const {return instance_id;};
 
-		void StateTransition(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, receivedBitsType receivedBits, bool& NextHeaderValid, headerIDType& NextHeader);
-		void ExtractFields(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, receivedWordsType receivedWords, bool& HeaderDone, PHVData<N_Size, N_MaxSuppHeaders, N_MaxPktId>& PHV, bool& HeaderDonePulse, /*ap_uint<numbits(HEADER_SIZE_IN_BITS)>& headerSize,*/ bool& headerSizeValid);
-		void PipelineAdjust(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOutReg, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOut, headerIDType& NextHeader, bool& HeaderDonePulse, const ap_uint<numbits(HEADER_SIZE_IN_BITS)>& headerSize);
+		void StateTransition(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, const receivedBitsType& receivedBits, bool& NextHeaderValid, headerIDType& NextHeader);
+		void ExtractFields(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, const receivedWordsType& receivedWords, bool& HeaderDone, PHVData<N_Size, N_MaxSuppHeaders, N_MaxPktId>& PHV, bool& HeaderDonePulse, ap_uint<numbits(HEADER_SIZE_IN_BITS)>& headerSize, bool& headerSizeValid, const receivedBitsType& receivedBits);
+		void PipelineAdjust(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOutReg, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOut, const headerIDType& NextHeader, const bool& HeaderDonePulse, const ap_uint<numbits(HEADER_SIZE_IN_BITS)>& headerSize);
 		void HeaderAnalysis(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, PHVData<N_Size, N_MaxSuppHeaders, N_MaxPktId>& PHV, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOut);
 
 };
@@ -149,14 +150,14 @@ class Header {
 // State transition function
 template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, typename T_DataBus, uint16_t N_BusSize, uint16_t N_MaxPktSize, uint16_t N_MaxSuppHeaders, uint8_t N_MaxPktId, typename T_HaeaderLayout>
 void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, N_MaxSuppHeaders, N_MaxPktId, T_HaeaderLayout>
-	::StateTransition (const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, receivedBitsType receivedBits, bool& NextHeaderValid, headerIDType& NextHeader)
+	::StateTransition (const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, const receivedBitsType& receivedBits, bool& NextHeaderValid, headerIDType& NextHeader)
 {
 #pragma HLS INLINE
 #pragma HLS UNROLL
 #pragma HLS LATENCY min=1 max=1
 
 	// Combinational logic
-	T_Key DataInMask = (1 << HeaderLayout.KeyLocation.second) - 1;
+	const T_Key DataInMask = (1 << HeaderLayout.KeyLocation.second) - 1;
 	auto tmpReceivedBits = receivedBits + N_BusSize;
 	T_Key tmpKeyVal = T_Key(PacketIn.Data >> stateTransShiftVal) & DataInMask;
 
@@ -180,13 +181,12 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 			IF_SOFTWARE(std::cout << "Header transition not found. Aborting processing" << std::endl;)
 		}
 	}
-
 };
 
 // Header extraction
 template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, typename T_DataBus, uint16_t N_BusSize, uint16_t N_MaxPktSize, uint16_t N_MaxSuppHeaders, uint8_t N_MaxPktId, typename T_HaeaderLayout>
 void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, N_MaxSuppHeaders, N_MaxPktId, T_HaeaderLayout>
-	::ExtractFields(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, receivedWordsType receivedWords, bool& HeaderDone, PHVData<N_Size, N_MaxSuppHeaders, N_MaxPktId>& PHV, bool& HeaderDonePulse, /*ap_uint<numbits(HEADER_SIZE_IN_BITS)>& headerSize,*/ bool& headerSizeValid)
+	::ExtractFields(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, const receivedWordsType& receivedWords, bool& HeaderDone, PHVData<N_Size, N_MaxSuppHeaders, N_MaxPktId>& PHV, bool& HeaderDonePulse, ap_uint<numbits(HEADER_SIZE_IN_BITS)>& headerSize, bool& headerSizeValid, const receivedBitsType& receivedBits)
 {
 #pragma HLS INLINE
 #pragma HLS LATENCY min=1 max=1
@@ -196,7 +196,14 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 	auto tmpLenVal = (PacketIn.Data >> headerLengthShiftVal) & ((1 << HeaderLayout.HeaderLengthInd.second) - 1);
 	auto tmpReceivedBits = receivedBits + N_BusSize;
 	ap_uint<numbits(HEADER_SIZE_IN_BITS)> tmpHeaderSize;
-	HeaderLayout.getHeaderSize(tmpHeaderSize, tmpLenVal);
+	//HeaderLayout.getHeaderSize(tmpHeaderSize, tmpLenVal);
+
+	if ((!headerSizeValid && tmpReceivedBits > HeaderLayout.HeaderLengthInd.first) and HeaderLayout.varSizeHeader) {
+		HeaderLayout.getHeaderSize(tmpHeaderSize, tmpLenVal);
+		IF_SOFTWARE(std::cout << "Header size of " << instance_name << " is " << tmpHeaderSize << std::endl;)
+		headerSizeValid = true;
+		headerSize = tmpHeaderSize;
+	}
 
 	auto tmpShiftVal = N_BusSize*(receivedWords+1);	//Implemented as SR not mul
 	ExtractedHeaderType tmpDinlShifted;
@@ -229,7 +236,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 		PHV.ValidPulse = PHV.Valid = HeaderDone;
 		if ((!HeaderLayout.varSizeHeader and receivedWords < RECEIVED_MAX_WORDS) or
 			(HeaderLayout.varSizeHeader and ((!headerSizeValid and receivedBits < tmpHeaderSize)
-			or (headerSizeValid and receivedBits < headerSize)))) {
+				or (headerSizeValid and receivedBits < headerSize)))) {
 			if (HEADER_SIZE_IN_BITS > N_BusSize)  {
 ///////				if (receivedWords == 0) {
 ///////#if not ARRAY_FOR_SR
@@ -264,46 +271,58 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 		}
 	}
 
-	if ((!headerSizeValid && tmpReceivedBits > HeaderLayout.HeaderLengthInd.first) and HeaderLayout.varSizeHeader) {
-		IF_SOFTWARE(std::cout << "Header size of " << instance_name << " is " << tmpHeaderSize << std::endl;)
-		headerSizeValid = true;
-		headerSize = tmpHeaderSize;
-	}
+	//if ((!headerSizeValid && tmpReceivedBits > HeaderLayout.HeaderLengthInd.first) and HeaderLayout.varSizeHeader) {
+	//	IF_SOFTWARE(std::cout << "Header size of " << instance_name << " is " << tmpHeaderSize << std::endl;)
+	//	headerSizeValid = true;
+	//	headerSize = tmpHeaderSize;
+	//}
 }
 
 // Pipeline adjesment function for further stages
 template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, typename T_DataBus, uint16_t N_BusSize, uint16_t N_MaxPktSize, uint16_t N_MaxSuppHeaders, uint8_t N_MaxPktId, typename T_HaeaderLayout>
 void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, N_MaxSuppHeaders, N_MaxPktId, T_HaeaderLayout>
-	::PipelineAdjust(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOutReg, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOut, headerIDType& NextHeader, bool& HeaderDonePulse, const ap_uint<numbits(HEADER_SIZE_IN_BITS)>& headerSize)
+	::PipelineAdjust(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOutReg, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOut, const headerIDType& NextHeader, const bool& HeaderDonePulse, const ap_uint<numbits(HEADER_SIZE_IN_BITS)>& headerSize)
 {
 #pragma HLS LATENCY min=1 max=1
 #pragma HLS INLINE
+
 	if (HeaderLayout.varSizeHeader) {
 		const ap_uint<N_BusSize> busSizeMask = ap_uint<N_BusSize>(ap_uint<N_BusSize>(N_BusSize) - 1);
 		ap_uint<N_BusSize> busSizemod = busSizeMask & headerSize; 
 		ap_uint<N_BusSize> stuffShift;
 		ap_uint<N_BusSize> stuffRShift;
+		ap_uint<N_BusSize> stuffSizeMask;
+		//auto comp_val = headerSize >> BUS_SIZE_LENGTH;
+		auto comp_val = (uint16_t(headerSize) - uint16_t(N_BusSize));
 		if (uint16_t(headerSize) > uint16_t(N_BusSize)) {
+		//if (comp_val > 0) {
 			stuffShift = ap_uint<N_BusSize>(busSizemod);
 			stuffRShift = ap_uint<N_BusSize>(N_BusSize) - ap_uint<N_BusSize>(busSizemod);
+			//PacketOut.Data = (T_DataBus(PacketOutReg.Data) << stuffShift)
+			//				 | (T_DataBus(PacketIn.Data) >> stuffRShift);
 		} else {
 			stuffShift = ap_uint<N_BusSize>(headerSize);
 			stuffRShift = ap_uint<N_BusSize>(N_BusSize) - ap_uint<N_BusSize>(headerSize);
+			//PacketOut.Data = (T_DataBus(PacketOutReg.Data) << stuffShift)
+			//				 | (T_DataBus(PacketIn.Data) >> stuffRShift);
 		}
-		ap_uint<N_BusSize> stuffSizeMask = ap_uint<N_BusSize>((ap_uint<N_BusSize>(1) << stuffRShift) - 1);
-		if (stuffShift == 0) {
-			PacketOut.Data = T_DataBus(PacketIn.Data);
-		} else {
-			PacketOut.Data = ((T_DataBus(PacketOutReg.Data) & stuffSizeMask) << stuffShift)\
+		//stuffSizeMask = ap_uint<N_BusSize>((ap_uint<N_BusSize>(1) << stuffRShift) - 1);
+		//if (busSizemod == 0) {
+		//	PacketOut.Data = T_DataBus(PacketIn.Data);
+		//} else {
+			//PacketOut.Data = ((T_DataBus(PacketOutReg.Data) & stuffSizeMask) << stuffShift)
+			PacketOut.Data = (T_DataBus(PacketOutReg.Data) << stuffShift)
 							 | (T_DataBus(PacketIn.Data) >> stuffRShift);
-		}
+		//}
 	} else {	
-		auto stuffSizeMask = ap_uint<DATAOUT_STUFF_SIZE>((ap_uint<DATAOUT_STUFF_SIZE+1>(1) << DATAOUT_STUFF_SIZE) - 1);
+		//auto stuffSizeMask = ap_uint<DATAOUT_STUFF_SIZE>((ap_uint<DATAOUT_STUFF_SIZE+1>(1) << DATAOUT_STUFF_SIZE) - 1);
 		PacketOut.Data = (DATAOUT_STUFF_SHIFT == 0) ?
 						  T_DataBus(PacketIn.Data) :
-						  (((T_DataBus(PacketOutReg.Data) & stuffSizeMask) << DATAOUT_STUFF_SHIFT)
+						  //(((T_DataBus(PacketOutReg.Data) & stuffSizeMask) << DATAOUT_STUFF_SHIFT)
+						  ((T_DataBus(PacketOutReg.Data) << DATAOUT_STUFF_SHIFT)
 							| (T_DataBus(PacketIn.Data) >> DATAOUT_STUFF_SIZE));
 	}
+
 	PacketOut.ID = PacketOutReg.ID;
 	PacketOut.Start = HeaderDonePulse;
 	PacketOut.Finish = PacketIn.Finish;
@@ -325,8 +344,8 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 #pragma HLS DEPENDENCE variable=NextHeaderValid WAR false
 #pragma HLS DEPENDENCE variable=HeaderDone WAR false
 #pragma HLS DEPENDENCE variable=NextHeader WAR false
-#pragma HLS DEPENDENCE variable=headerSize WAR false
-#pragma HLS DEPENDENCE variable=headerSizeValid WAR false
+#pragma HLS DEPENDENCE variable=headerSize RAW false
+#pragma HLS DEPENDENCE variable=headerSizeValid RAW false
 #pragma HLS PIPELINE II=1
 
 	// New packet detection
@@ -346,7 +365,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 		StateTransition(PacketIn, receivedBits, NextHeaderValid, NextHeader);
 
 		// Header extration
-		ExtractFields(PacketIn, receivedWords, HeaderDone, PHV, HeaderDonePulse, /*headerSize,*/ headerSizeValid);
+		ExtractFields(PacketIn, receivedWords, HeaderDone, PHV, HeaderDonePulse, headerSize, headerSizeValid, receivedBits);
 
 		// Adjusting output data
 		PipelineAdjust(PacketIn, PacketOutReg, PacketOut, NextHeader, HeaderDonePulse, headerSize);

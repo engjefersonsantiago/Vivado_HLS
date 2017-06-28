@@ -429,6 +429,8 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
                                 reg_str_bypass = ""
                                 bypass_id = 0
                                 reg_bypass_id = 0
+                                tt = []
+                                t = []
 				for previous_states in headers_t["previous_state_both"]:
 				    for headers_tt in headers_list:
                                         if headers_tt["previous_state_both"] != headers_t["previous_state_both"]:
@@ -437,18 +439,31 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
                                                     for next_state_tt in headers_tt["next_state"]:
                                                         if next_state_tt == headers_t["header_name"]:
                                                             multi_level_parent = True
-                                                            print "Found nodes in different levels with same parent: " + headers_t["header_name"] + " and " + headers_tt["header_name"] + \
-                                                                    ". Using " + headers_tt["header_name"] + " as a bypass node"
-				                            Parser.write("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n")
+                                                            #print "Found nodes in different levels with same parent: " + headers_t["header_name"] + " and " + headers_tt["header_name"] + \
+                                                            #        ". Using " + headers_tt["header_name"] + " as a bypass node"
+				                            #Parser.write("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n")
+				                            tt.append("Found nodes in different levels with same parent: " + headers_t["header_name"] + " and " + headers_tt["header_name"] + \
+                                                                    ". Using " + headers_tt["header_name"] + " as a bypass node")
+                                                            t.append("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n")
                                                     
-                                        if multi_level_parent:
-                                            break
+                                        #if multi_level_parent:
+                                        #    print "-----------------------"
+                                        #    print(t)
+                                        #    ##    break
  
                                     if not multi_level_parent:
 				        Parser.write("\n\tif (tmp_" + str(previous_states[0]) + "_PHV[" + str(previous_states[1]) +"].Valid)" + "\n")
 				        Parser.write("\n\t\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(previous_states[1]) +"];" + "\n")
-                                    else:
-                                        Parser.write(reg_str_bypass)
+                                    #else:
+                                        #print "-----------------------"
+                                        #print(t)
+                                        #Parser.write(reg_str_bypass)
+                                if multi_level_parent:
+                                    #print "-----------------------"
+                                    print(tt[len(tt) - 1])
+                                    Parser.write(t[len(t)-1])
+                                    ##    break
+ 
 
 			Parser.write("\n\t" + header_name + ".HeaderAnalysis(tmpPacketIn[" + str(header_state_id) + "], " \
 						"tmp_" + header_name + "_PHV[" + str(header_state_id) + "], tmpPacketOut[" + str(header_state_id) + "]);" + "\n")
