@@ -9,8 +9,8 @@
 
 int main () {
 
-	std::array<PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, 5> Packet;
-    std::array<PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, 5> Packet_out;
+	std::array<PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, 11> Packet;
+    std::array<PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, 11> Packet_out;
 	std::array<PHVData<MAX_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, HEADER_NUM> PHV;
 	std::array<PHVData<MAX_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, HEADER_NUM> ExpPHV;
 	uint64_t PktID = 69;
@@ -87,12 +87,25 @@ int main () {
 	Packet[10].Data ="0x00001700";
 	Packet[11].Data ="0x032A0000";
 #elif PKT_BUS_SIZE == 64
+	//Packet[0].Data = "0x001C0F090010001C";
+	//Packet[1].Data = "0x0F5CA28308004500";
+	//Packet[2].Data = "0x00DCD4310000F511";
+	//Packet[3].Data = "0x17DF592E651FC45F";
+	//Packet[4].Data = "0x46539F74007B00C8";
+	//Packet[5].Data = "0x00001700032A0000";
+
 	Packet[0].Data = "0x001C0F090010001C";
 	Packet[1].Data = "0x0F5CA28308004500";
-	Packet[2].Data = "0x00DCD4310000F511";
-	Packet[3].Data = "0x17DF592E651FC45F";
-	Packet[4].Data = "0x46539F74007B00C8";
-	Packet[5].Data = "0x00001700032A0000";
+	Packet[2].Data = "0x0034c0b90000f606"; 
+	Packet[3].Data = "0xba2384cf0306c0a8";
+	Packet[4].Data = "0x016901bbe9686382"; 
+	Packet[5].Data = "0x6efbd36e81f98010";
+	Packet[6].Data = "0x80000c9200000101"; 
+	Packet[7].Data = "0x080a5c36e4f102b1";
+	Packet[8].Data = "0x4961000000000000"; 
+	Packet[9].Data = "0x0000000000000000";
+
+
 #elif PKT_BUS_SIZE == 128
 	//Packet[0].Data = "0x001C0F090010001C0F5CA28308004500";
 	//Packet[1].Data = "0x00DCD4310000F51117DF592E651FC45F";

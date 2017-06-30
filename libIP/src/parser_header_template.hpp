@@ -27,17 +27,17 @@
 
 #define ETHERNET_NUM_FIELDS 3
 
-const HeaderFormat<14, 3, ap_uint<16>, 3, MAX_SUPP_HEADERS> ethernet_t
+const HeaderFormat<14, 3, ap_uint<16>, 3, MAX_SUPP_HEADERS , 1, 1> ethernet_t
 {
 	(ap_uint<112>("5192296858534827628530496329220095")),
-	{
+	std::array<FieldFormat< 14>,3>{
 		{
 			{0, 48 IF_SOFTWARE(, "dstAddr")},
 			{48, 48 IF_SOFTWARE(, "srcAddr")},
 			{96, 16 IF_SOFTWARE(, "etherType")}
 		},
 	},
-	{
+	std::array<KeyFormat<ap_uint<16>, 6>,3>{
 		{
 			{0x0800, 65535, 3 IF_SOFTWARE(, "ipv4_var")},
 			{0x8100, 65535, 2 IF_SOFTWARE(, "vlan")},
@@ -48,6 +48,8 @@ const HeaderFormat<14, 3, ap_uint<16>, 3, MAX_SUPP_HEADERS> ethernet_t
 	(false),
 	IF_SOFTWARE("ethernet_t",)
 	(false),
+	std::pair<ap_uint<7>, ap_uint<7>>{0,1},
+	{{1}}
 };
 
 #define VLAN_HEADER_SIZE 4
@@ -56,10 +58,10 @@ const HeaderFormat<14, 3, ap_uint<16>, 3, MAX_SUPP_HEADERS> ethernet_t
 
 #define VLAN_NUM_FIELDS 4
 
-const HeaderFormat<4, 4, ap_uint<16>, 2, MAX_SUPP_HEADERS> vlan_t
+const HeaderFormat<4, 4, ap_uint<16>, 2, MAX_SUPP_HEADERS , 1, 1> vlan_t
 {
 	(ap_uint<32>("4294967295")),
-	{
+	std::array<FieldFormat< 4>,4>{
 		{
 			{0, 3 IF_SOFTWARE(, "PCP")},
 			{3, 1 IF_SOFTWARE(, "DEI")},
@@ -67,7 +69,7 @@ const HeaderFormat<4, 4, ap_uint<16>, 2, MAX_SUPP_HEADERS> vlan_t
 			{16, 16 IF_SOFTWARE(, "etherType")}
 		},
 	},
-	{
+	std::array<KeyFormat<ap_uint<16>, 6>,2>{
 		{
 			{0x0800, 65535, 3 IF_SOFTWARE(, "ipv4_var")},
 			{0x86dd, 65535, 4 IF_SOFTWARE(, "ipv6")}
@@ -77,6 +79,8 @@ const HeaderFormat<4, 4, ap_uint<16>, 2, MAX_SUPP_HEADERS> vlan_t
 	(false),
 	IF_SOFTWARE("vlan_t",)
 	(false),
+	std::pair<ap_uint<6>, ap_uint<6>>{0,1},
+	{{1}}
 };
 
 #define IPV4_VAR_HEADER_SIZE 60
@@ -84,25 +88,35 @@ const HeaderFormat<4, 4, ap_uint<16>, 2, MAX_SUPP_HEADERS> vlan_t
 #define IPV4_VAR_HEADER_SIZE_BITS bytes2Bits(IPV4_VAR_HEADER_SIZE)
 
 #define IPV4_VAR_NUM_FIELDS 13
-template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, uint16_t N_MaxSuppHeaders> 
-struct ipv4_varHeaderFormat { 
-	ap_uint<bytes2Bits(N_Size)> PHVMask; 
-	std::array<FieldFormat<N_Size>, N_Fields> Fields; 
-	std::array<KeyFormat<T_Key, N_MaxSuppHeaders>, N_Key> Key; 
-	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> KeyLocation; 
-	bool LastHeader;
-	IF_SOFTWARE(std::string HeaderName;)
-	bool varSizeHeader;
-	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd;
+template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, uint16_t N_MaxSuppHeaders, uint16_t N_HeaderLenArrSize, uint16_t N_HeaderLenELemBits> 
+struct ipv4_varHeaderFormat : public HeaderFormat<N_Size, N_Fields, T_Key, N_Key, N_MaxSuppHeaders, N_HeaderLenArrSize, N_HeaderLenELemBits> { 
+	ipv4_varHeaderFormat (ap_uint<bytes2Bits(N_Size)> PHVMask, 
+		std::array<FieldFormat<N_Size>, N_Fields> Fields, 
+		std::array<KeyFormat<T_Key, N_MaxSuppHeaders>, N_Key> Key, 
+		std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> KeyLocation, 
+		bool LastHeader,
+		IF_SOFTWARE(std::string HeaderName,)
+		bool varSizeHeader,
+		std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd, std::array<ap_uint<N_HeaderLenELemBits>, N_HeaderLenArrSize> ArrLenLookup) : 
+	HeaderFormat<N_Size, N_Fields, T_Key, N_Key, N_MaxSuppHeaders, N_HeaderLenArrSize, N_HeaderLenELemBits> ({PHVMask, 
+		Fields, 
+		Key, 
+		KeyLocation, 
+		LastHeader,
+		IF_SOFTWARE(HeaderName,)
+		varSizeHeader,
+		HeaderLengthInd,
+		ArrLenLookup}) {}
+
 	void getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, const ap_uint<4>& ihl) {
 		size = ((0x4*ihl)*0x8);
 	}
 };
 
-const ipv4_varHeaderFormat<60, 13, ap_uint<8>, 2, MAX_SUPP_HEADERS> ipv4_var_t
+const ipv4_varHeaderFormat<60, 13, ap_uint<8>, 2, MAX_SUPP_HEADERS , 16, 9> ipv4_var_t
 {
 	(ap_uint<480>("3121748550315992231381597229793166305748598142664971150859156959625371738819765620120306103063491971159826931121406622895447975679288285306290175")),
-	{
+	std::array<FieldFormat< 60>,13>{
 		{
 			{0, 4 IF_SOFTWARE(, "version")},
 			{4, 4 IF_SOFTWARE(, "ihl")},
@@ -119,7 +133,7 @@ const ipv4_varHeaderFormat<60, 13, ap_uint<8>, 2, MAX_SUPP_HEADERS> ipv4_var_t
 			{160, 320 IF_SOFTWARE(, "options")}
 		},
 	},
-	{
+	std::array<KeyFormat<ap_uint<8>, 6>,2>{
 		{
 			{0x11, 255, 5 IF_SOFTWARE(, "udp")},
 			{0x06, 255, 6 IF_SOFTWARE(, "tcp")}
@@ -129,7 +143,8 @@ const ipv4_varHeaderFormat<60, 13, ap_uint<8>, 2, MAX_SUPP_HEADERS> ipv4_var_t
 	(false),
 	IF_SOFTWARE("ipv4_var_t",)
 	(true),
-	std::pair<ap_uint<9>, ap_uint<9>>{4,4}
+	std::pair<ap_uint<9>, ap_uint<9>>{4,4},
+	{{0,32,64,96,128,160,192,224,256,288,320,352,384,416,448,480}}
 };
 
 #define IPV6_HEADER_SIZE 40
@@ -138,10 +153,10 @@ const ipv4_varHeaderFormat<60, 13, ap_uint<8>, 2, MAX_SUPP_HEADERS> ipv4_var_t
 
 #define IPV6_NUM_FIELDS 8
 
-const HeaderFormat<40, 8, ap_uint<8>, 2, MAX_SUPP_HEADERS> ipv6_t
+const HeaderFormat<40, 8, ap_uint<8>, 2, MAX_SUPP_HEADERS , 1, 1> ipv6_t
 {
 	(ap_uint<320>("2135987035920910082395021706169552114602704522356652769947041607822219725780640550022962086936575")),
-	{
+	std::array<FieldFormat< 40>,8>{
 		{
 			{0, 4 IF_SOFTWARE(, "version")},
 			{4, 8 IF_SOFTWARE(, "trafficClass")},
@@ -153,7 +168,7 @@ const HeaderFormat<40, 8, ap_uint<8>, 2, MAX_SUPP_HEADERS> ipv6_t
 			{192, 128 IF_SOFTWARE(, "dstAddr")}
 		},
 	},
-	{
+	std::array<KeyFormat<ap_uint<8>, 6>,2>{
 		{
 			{0x11, 255, 5 IF_SOFTWARE(, "udp")},
 			{0x06, 255, 6 IF_SOFTWARE(, "tcp")}
@@ -163,6 +178,8 @@ const HeaderFormat<40, 8, ap_uint<8>, 2, MAX_SUPP_HEADERS> ipv6_t
 	(false),
 	IF_SOFTWARE("ipv6_t",)
 	(false),
+	std::pair<ap_uint<9>, ap_uint<9>>{0,1},
+	{{1}}
 };
 
 #define UDP_HEADER_SIZE 8
@@ -171,10 +188,10 @@ const HeaderFormat<40, 8, ap_uint<8>, 2, MAX_SUPP_HEADERS> ipv6_t
 
 #define UDP_NUM_FIELDS 4
 
-const HeaderFormat<8, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> udp_t
+const HeaderFormat<8, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS , 1, 1> udp_t
 {
 	(ap_uint<64>("18446744073709551615")),
-	{
+	std::array<FieldFormat< 8>,4>{
 		{
 			{0, 16 IF_SOFTWARE(, "srcPort")},
 			{16, 16 IF_SOFTWARE(, "dstPort")},
@@ -182,7 +199,7 @@ const HeaderFormat<8, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> udp_t
 			{48, 16 IF_SOFTWARE(, "chksum")}
 		},
 	},
-	{
+	std::array<KeyFormat<ap_uint<1>, 6>,1>{
 		{
 			{1, 1, 0 IF_SOFTWARE(, "Last Header")}
 		},
@@ -191,6 +208,8 @@ const HeaderFormat<8, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> udp_t
 	(true),
 	IF_SOFTWARE("udp_t",)
 	(false),
+	std::pair<ap_uint<7>, ap_uint<7>>{0,1},
+	{{1}}
 };
 
 #define TCP_HEADER_SIZE 20
@@ -199,10 +218,10 @@ const HeaderFormat<8, 4, ap_uint<1>, 1, MAX_SUPP_HEADERS> udp_t
 
 #define TCP_NUM_FIELDS 10
 
-const HeaderFormat<20, 10, ap_uint<1>, 1, MAX_SUPP_HEADERS> tcp_t
+const HeaderFormat<20, 10, ap_uint<1>, 1, MAX_SUPP_HEADERS , 1, 1> tcp_t
 {
 	(ap_uint<160>("1461501637330902918203684832716283019655932542975")),
-	{
+	std::array<FieldFormat< 20>,10>{
 		{
 			{0, 16 IF_SOFTWARE(, "srcPort")},
 			{16, 16 IF_SOFTWARE(, "dstPort")},
@@ -216,7 +235,7 @@ const HeaderFormat<20, 10, ap_uint<1>, 1, MAX_SUPP_HEADERS> tcp_t
 			{144, 16 IF_SOFTWARE(, "urgPtr")}
 		},
 	},
-	{
+	std::array<KeyFormat<ap_uint<1>, 6>,1>{
 		{
 			{1, 1, 0 IF_SOFTWARE(, "Last Header")}
 		},
@@ -225,6 +244,8 @@ const HeaderFormat<20, 10, ap_uint<1>, 1, MAX_SUPP_HEADERS> tcp_t
 	(true),
 	IF_SOFTWARE("tcp_t",)
 	(false),
+	std::pair<ap_uint<8>, ap_uint<8>>{0,1},
+	{{1}}
 };
 
 #endif //_PARSER_HEADER_TEMP_HPP_

@@ -26,7 +26,7 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 	// Stateful objects
 
 #pragma HLS INTERFACE ap_ovld port=ethernet_PHV
-	static Header<ETHERNET_HEADER_SIZE, ETHERNET_NUM_FIELDS, ap_uint<16>, 3, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<ETHERNET_HEADER_SIZE, ETHERNET_NUM_FIELDS, ap_uint<16>, 3, MAX_SUPP_HEADERS>> ethernet(IF_SOFTWARE("ethernet",) 1, ethernet_t);
+	static Header<ETHERNET_HEADER_SIZE, ETHERNET_NUM_FIELDS, ap_uint<16>, 3, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<ETHERNET_HEADER_SIZE, ETHERNET_NUM_FIELDS, ap_uint<16>, 3, MAX_SUPP_HEADERS,1, 1>, 1> ethernet(IF_SOFTWARE("ethernet",) 1, ethernet_t);
 
 	PHVData<ETHERNET_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE> wire_ethernet_PHV;
 
@@ -35,7 +35,7 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 #pragma HLS DEPENDENCE variable=tmp_ethernet_PHV false
 
 #pragma HLS INTERFACE ap_ovld port=vlan_PHV
-	static Header<VLAN_HEADER_SIZE, VLAN_NUM_FIELDS, ap_uint<16>, 2, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<VLAN_HEADER_SIZE, VLAN_NUM_FIELDS, ap_uint<16>, 2, MAX_SUPP_HEADERS>> vlan(IF_SOFTWARE("vlan",) 2, vlan_t);
+	static Header<VLAN_HEADER_SIZE, VLAN_NUM_FIELDS, ap_uint<16>, 2, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<VLAN_HEADER_SIZE, VLAN_NUM_FIELDS, ap_uint<16>, 2, MAX_SUPP_HEADERS,1, 1>, 1> vlan(IF_SOFTWARE("vlan",) 2, vlan_t);
 
 	PHVData<VLAN_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE> wire_vlan_PHV;
 
@@ -44,7 +44,7 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 #pragma HLS DEPENDENCE variable=tmp_vlan_PHV false
 
 #pragma HLS INTERFACE ap_ovld port=ipv4_var_PHV
-	static Header<IPV4_VAR_HEADER_SIZE, IPV4_VAR_NUM_FIELDS, ap_uint<8>, 2, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, ipv4_varHeaderFormat<IPV4_VAR_HEADER_SIZE, IPV4_VAR_NUM_FIELDS, ap_uint<8>, 2, MAX_SUPP_HEADERS>> ipv4_var(IF_SOFTWARE("ipv4_var",) 3, ipv4_var_t);
+	static Header<IPV4_VAR_HEADER_SIZE, IPV4_VAR_NUM_FIELDS, ap_uint<8>, 2, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, ipv4_varHeaderFormat<IPV4_VAR_HEADER_SIZE, IPV4_VAR_NUM_FIELDS, ap_uint<8>, 2, MAX_SUPP_HEADERS,16, 9>, 16> ipv4_var(IF_SOFTWARE("ipv4_var",) 3, ipv4_var_t);
 
 	PHVData<IPV4_VAR_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE> wire_ipv4_var_PHV;
 
@@ -53,7 +53,7 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 #pragma HLS DEPENDENCE variable=tmp_ipv4_var_PHV false
 
 #pragma HLS INTERFACE ap_ovld port=ipv6_PHV
-	static Header<IPV6_HEADER_SIZE, IPV6_NUM_FIELDS, ap_uint<8>, 2, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<IPV6_HEADER_SIZE, IPV6_NUM_FIELDS, ap_uint<8>, 2, MAX_SUPP_HEADERS>> ipv6(IF_SOFTWARE("ipv6",) 4, ipv6_t);
+	static Header<IPV6_HEADER_SIZE, IPV6_NUM_FIELDS, ap_uint<8>, 2, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<IPV6_HEADER_SIZE, IPV6_NUM_FIELDS, ap_uint<8>, 2, MAX_SUPP_HEADERS,1, 1>, 1> ipv6(IF_SOFTWARE("ipv6",) 4, ipv6_t);
 
 	PHVData<IPV6_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE> wire_ipv6_PHV;
 
@@ -62,7 +62,7 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 #pragma HLS DEPENDENCE variable=tmp_ipv6_PHV false
 
 #pragma HLS INTERFACE ap_ovld port=udp_PHV
-	static Header<UDP_HEADER_SIZE, UDP_NUM_FIELDS, ap_uint<1>, 1, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<UDP_HEADER_SIZE, UDP_NUM_FIELDS, ap_uint<1>, 1, MAX_SUPP_HEADERS>> udp(IF_SOFTWARE("udp",) 5, udp_t);
+	static Header<UDP_HEADER_SIZE, UDP_NUM_FIELDS, ap_uint<1>, 1, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<UDP_HEADER_SIZE, UDP_NUM_FIELDS, ap_uint<1>, 1, MAX_SUPP_HEADERS,1, 1>, 1> udp(IF_SOFTWARE("udp",) 5, udp_t);
 
 	PHVData<UDP_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE> wire_udp_PHV;
 
@@ -71,7 +71,7 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 #pragma HLS DEPENDENCE variable=tmp_udp_PHV false
 
 #pragma HLS INTERFACE ap_ovld port=tcp_PHV
-	static Header<TCP_HEADER_SIZE, TCP_NUM_FIELDS, ap_uint<1>, 1, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<TCP_HEADER_SIZE, TCP_NUM_FIELDS, ap_uint<1>, 1, MAX_SUPP_HEADERS>> tcp(IF_SOFTWARE("tcp",) 6, tcp_t);
+	static Header<TCP_HEADER_SIZE, TCP_NUM_FIELDS, ap_uint<1>, 1, ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, HeaderFormat<TCP_HEADER_SIZE, TCP_NUM_FIELDS, ap_uint<1>, 1, MAX_SUPP_HEADERS,1, 1>, 1> tcp(IF_SOFTWARE("tcp",) 6, tcp_t);
 
 	PHVData<TCP_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE> wire_tcp_PHV;
 

@@ -31,7 +31,7 @@ struct KeyFormat {
 };
 
 // Basic Header Format structure
-template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, uint16_t N_MaxSuppHeaders>
+template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, uint16_t N_MaxSuppHeaders, uint16_t N_HeaderLenArrSize, uint16_t N_HeaderLenELemBits>
 struct HeaderFormat {
 	ap_uint<bytes2Bits(N_Size)> PHVMask;
 	std::array<FieldFormat<N_Size>, N_Fields> Fields;
@@ -41,8 +41,28 @@ struct HeaderFormat {
 	IF_SOFTWARE(std::string HeaderName;)
 	bool varSizeHeader;							// Variable size header flag
 	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd;	// First: Offset. Second: Lenght
+	std::array<ap_uint<N_HeaderLenELemBits>, N_HeaderLenArrSize> ArrLenLookup;
 	// For fixed sized headers. Needs to be redefined for variable sizes
 	void getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, const ap_uint<numbits(bytes2Bits(N_Size))>& expr_val) {size = bytes2Bits(N_Size);}
+
+	//HeaderFormat(	ap_uint<bytes2Bits(N_Size)> PHVMask_,
+	//				std::array<FieldFormat<N_Size>, N_Fields> Fields_,
+	//				std::array<KeyFormat<T_Key, N_MaxSuppHeaders>, N_Key> Key_,
+	//				std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> KeyLocation_,
+	//				bool LastHeader_,						
+	//				IF_SOFTWARE(std::string HeaderName_,)
+	//				bool varSizeHeader_,							
+	//				std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd_):
+   	//				
+	//				PHVMask{PHVMask_},
+	//				Fields {Fields_},
+	//				Key {Key_},
+	//				KeyLocation {KeyLocation_},
+	//				LastHeader {LastHeader_},						
+	//				IF_SOFTWARE(HeaderName{HeaderName_},)
+	//				varSizeHeader{varSizeHeader_},							
+	//				HeaderLengthInd{HeaderLengthInd_}	
+	//				{}
 };
 
 // Basic packet data type

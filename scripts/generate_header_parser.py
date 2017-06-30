@@ -59,6 +59,7 @@ def json_parser(json_file):
                         field_offset+=int(headers["fields"][field][1])
                         header_dict["var_size_header"] = False
 
+                header_dict["header_length_lookup_array"] = []
                 header_dict["header_length_field"] = ""
                 header_dict["header_length_position"] = 0
 		header_dict["header_length_size"] = 1
@@ -101,7 +102,34 @@ def json_parser(json_file):
 		header_dict["header_name"] = "" #from instantiation
 		header_dict["header_id"] = headers["id"]
 		header_dict["metadata"] = False
-		headers_list.append(header_dict)
+
+                if header_dict["var_size_header"]:
+                    exp_str = header_dict["header_length_expression"] 
+                    fx = re.sub(header_dict["header_length_field"], "x", exp_str) 
+                    f = lambda x: eval(fx)
+                    for i in range(header_dict["header_size_bits"]):
+                        res = f(i)
+                        if res >  header_dict["header_size_bits"]:
+                            break
+                        else:
+                            header_dict["header_length_lookup_array"].append(res)
+                    print(header_dict["header_length_lookup_array"])
+                else:
+                    header_dict["header_length_lookup_array"].append(1)
+                header_dict["header_length_larray_size"] = len(header_dict["header_length_lookup_array"])
+                last_len_elem = header_dict["header_length_lookup_array"][header_dict["header_length_larray_size"] - 1] 
+                print (last_len_elem)
+                len_bit_size = 0 
+                if last_len_elem % 2:
+                    if last_len_elem == 1:
+                        len_bit_size = 1
+                    else:
+                        len_bit_size = int(math.ceil(math.log(last_len_elem, 2)))
+                else:
+                    len_bit_size = int(math.ceil(math.log(last_len_elem + 1, 2)))
+                header_dict["len_bit_size"] = len_bit_size
+
+                headers_list.append(header_dict)
 
 	#Header instantiation analisys
 	for header_i in headers_inst:
@@ -232,25 +260,31 @@ def write_headers_template(headers_list, max_supp_headers, max_header_size, head
                         if headers_t["var_size_header"]:
                             header_layout = header_name + "HeaderFormat"
                             # Redefining header template for variable sized headers
-                            parser_header_template.write("template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, uint16_t N_MaxSuppHeaders> " + "\n") 
-                            #parser_header_template.write("struct " + header_layout + " : HeaderFormat<N_Size, N_Fields, T_Key, N_Key, N_MaxSuppHeaders> { " + "\n") 
-                            #parser_header_template.write("struct " + header_layout + " : HeaderFormat { " + "\n") 
+                            parser_header_template.write("template<uint16_t N_Size, uint16_t N_Fields, typename T_Key, uint16_t N_Key, uint16_t N_MaxSuppHeaders, uint16_t N_HeaderLenArrSize, uint16_t N_HeaderLenELemBits> " + "\n") 
+                            parser_header_template.write("struct " + header_layout + " : public HeaderFormat<N_Size, N_Fields, T_Key, N_Key, N_MaxSuppHeaders, N_HeaderLenArrSize, N_HeaderLenELemBits> { " + "\n") 
+	                    #parser_header_template.write("\ttemplate <typename... T>  " + "\n")  
+	                    #parser_header_template.write("\t" + header_layout + "(T... args) : HeaderFormat<N_Size, N_Fields, T_Key, N_Key, N_MaxSuppHeaders>(args...){} " + "\n")   
 
                             
-                            parser_header_template.write("struct " + header_layout + " { " + "\n") 
-                            parser_header_template.write("\tap_uint<bytes2Bits(N_Size)> PHVMask; " + "\n")  
-	                    parser_header_template.write("\tstd::array<FieldFormat<N_Size>, N_Fields> Fields; " + "\n")  
-	                    parser_header_template.write("\tstd::array<KeyFormat<T_Key, N_MaxSuppHeaders>, N_Key> Key; " + "\n")  
-	                    parser_header_template.write("\tstd::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> KeyLocation; " + "\n")  
-	                    parser_header_template.write("\tbool LastHeader;" + "\n") 					
-	                    parser_header_template.write("\tIF_SOFTWARE(std::string HeaderName;)" + "\n")   
-	                    parser_header_template.write("\tbool varSizeHeader;" + "\n") 				
-	                    parser_header_template.write("\tstd::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd;" + "\n")  
+                            parser_header_template.write("\t" + header_layout + " (ap_uint<bytes2Bits(N_Size)> PHVMask, " + "\n")  
+	                    parser_header_template.write("\t\tstd::array<FieldFormat<N_Size>, N_Fields> Fields, " + "\n")  
+	                    parser_header_template.write("\t\tstd::array<KeyFormat<T_Key, N_MaxSuppHeaders>, N_Key> Key, " + "\n")  
+	                    parser_header_template.write("\t\tstd::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> KeyLocation, " + "\n")  
+	                    parser_header_template.write("\t\tbool LastHeader," + "\n") 					
+	                    parser_header_template.write("\t\tIF_SOFTWARE(std::string HeaderName,)" + "\n")   
+	                    parser_header_template.write("\t\tbool varSizeHeader," + "\n") 				
+                            parser_header_template.write("\t\tstd::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd, std::array<ap_uint<N_HeaderLenELemBits>, N_HeaderLenArrSize> ArrLenLookup) : " + "\n")  
+                            parser_header_template.write("\tHeaderFormat<N_Size, N_Fields, T_Key, N_Key, N_MaxSuppHeaders, N_HeaderLenArrSize, N_HeaderLenELemBits> ({PHVMask, " + "\n")  
+	                    parser_header_template.write("\t\tFields, " + "\n")  
+	                    parser_header_template.write("\t\tKey, " + "\n")  
+	                    parser_header_template.write("\t\tKeyLocation, " + "\n")  
+	                    parser_header_template.write("\t\tLastHeader," + "\n") 					
+	                    parser_header_template.write("\t\tIF_SOFTWARE(HeaderName,)" + "\n")   
+	                    parser_header_template.write("\t\tvarSizeHeader," + "\n") 				
+                            parser_header_template.write("\t\tHeaderLengthInd," + "\n")      
+                            parser_header_template.write("\t\tArrLenLookup}) {}" + "\n")      
                             
-                            
-                            
-                            
-                            parser_header_template.write("\tvoid getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, "\
+                            parser_header_template.write("\n\tvoid getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, "\
                                                             "const ap_uint<" + str(headers_t["header_length_size"]) + ">& " \
                                                             + headers_t["header_length_field"] + ") {" + "\n") 
                             parser_header_template.write("\t\tsize = " + str(headers_t["header_length_expression"]) + ";" + "\n") 
@@ -259,13 +293,13 @@ def write_headers_template(headers_list, max_supp_headers, max_header_size, head
 
 			# Header layout declaration
 			if headers_t["last_header"]:
-				headers_t["key_number"] = 1
-
+			    headers_t["key_number"] = 1
 			parser_header_template.write("\nconst " + header_layout + "<" + str(headers_t["header_size"]) + ", "		\
-			#parser_header_template.write("\n" + header_layout + "<" + str(headers_t["header_size"]) + ", "		\
 											+ str(headers_t["num_fields"]) + ", " + headers_t["key_type"]	\
-											+ ", " + str(headers_t["key_number"]) + ", MAX_SUPP_HEADERS> "	\
-											+ headers_t["header_type_name"] + "\n")
+											+ ", " + str(headers_t["key_number"]) + ", MAX_SUPP_HEADERS "	\
+											+ ", " + str(headers_t["header_length_larray_size"]) \
+                                                                                        + ", " + str(headers_t["len_bit_size"]) 
+                                                                                        + "> " + headers_t["header_type_name"] + "\n")
 			parser_header_template.write( "{" + "\n")
 
 			# Extract mask
@@ -273,8 +307,10 @@ def write_headers_template(headers_list, max_supp_headers, max_header_size, head
 						+ ">(\"" + str(headers_t["extr_mask"]) + "\"))," + "\n")
 
 			# Header Fileds
-			field_str = "\t{\n\t\t{"
-			for field in range(headers_t["num_fields"]):
+			#field_str = "\t{\n\t\t{"
+                        field_str = "\tstd::array<FieldFormat< " + str(headers_t["header_size"]) + ">," + str(headers_t["num_fields"]) + ">{\n\t\t{"
+
+                        for field in range(headers_t["num_fields"]):
 				field_str =  field_str + "\n\t\t\t{" + str(headers_t["fields"][field][1]) + ", "	\
 					+ str(headers_t["fields"][field][2]) + " IF_SOFTWARE(, \""		\
 					+ str(headers_t["fields"][field][0]) + "\")}"
@@ -285,7 +321,8 @@ def write_headers_template(headers_list, max_supp_headers, max_header_size, head
 			parser_header_template.write( field_str	 + "\n")
 
 			# Match Keys
-			key_str = "\t{\n\t\t{"
+			#key_str = "\t{\n\t\t{"
+			key_str = "\tstd::array<KeyFormat<" + headers_t["key_type"] + ", " + str(max_supp_headers) + ">," + str(headers_t["key_number"]) + ">{\n\t\t{"
 			it = 0
 			num_keys = len(headers_t["transition_keys"])
 			if headers_t["last_header"]:
@@ -317,12 +354,23 @@ def write_headers_template(headers_list, max_supp_headers, max_header_size, head
 			parser_header_template.write("\t(" + string.lower(str(headers_t["var_size_header"])) + ")," + "\n")
 
 			# Variable Size indicator position
-                        if headers_t["var_size_header"]:
-			    parser_header_template.write( "\tstd::pair<ap_uint<" + str(int.bit_length(headers_t["header_size_bits"]))   \
+			parser_header_template.write( "\tstd::pair<ap_uint<" + str(int.bit_length(headers_t["header_size_bits"]))   \
 			    		+ ">, ap_uint<" + str(int.bit_length(headers_t["header_size_bits"]))				\
-			    		+ ">>{" + str(headers_t["header_length_position"]) + "," + str(headers_t["header_length_size"]) + "}" + "\n")
+			    		+ ">>{" + str(headers_t["header_length_position"]) + "," + str(headers_t["header_length_size"]) + "}," + "\n")
 
-			# End of declaration
+                        # Initialize pipeline adjust for variable sized headers
+			#parser_header_template.write( "\tstd::array<ap_uint<" + str(headers_t["len_bit_size"]) + ">, " + str(headers_t["header_length_larray_size"]) + ">({")
+			parser_header_template.write("\t{{")
+                        it = 0
+                        for i in headers_t["header_length_lookup_array"]:
+			    it+=1
+                            parser_header_template.write(str(i))
+                            if it < headers_t["header_length_larray_size"]:
+			        parser_header_template.write(",")
+			#parser_header_template.write("})" + "\n")
+			parser_header_template.write("}}" + "\n")
+
+                        # End of declaration
 			parser_header_template.write("};" + "\n")
 
 
@@ -382,7 +430,6 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
 
 		Parser.write("#pragma HLS INTERFACE ap_ctrl_none port=return" + "\n")
 		Parser.write("#pragma HLS PIPELINE II=1" + "\n")
-		#Parser.write("#pragma HLS LATENCY min=1 max=" + str(max_supp_headers) + "\n")
 
 		Parser.write("\n\t// Wires" + "\n")
 		Parser.write("\tstd::array<PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, MAX_SUPP_HEADERS + 1> tmpPacketOut;" + "\n")
@@ -404,7 +451,8 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
 							+ headers_t["key_type"] + ", " + str(headers_t["key_number"])\
 							+ ", ap_uint<PKT_BUS_SIZE>, PKT_BUS_SIZE, MAX_PKT_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE, "\
                                                         + header_layout + "<" + header_name_cap + "_HEADER_SIZE, " + header_name_cap + "_NUM_FIELDS, "\
-							+ headers_t["key_type"] + ", " + str(headers_t["key_number"]) + ", MAX_SUPP_HEADERS>> "\
+							+ headers_t["key_type"] + ", " + str(headers_t["key_number"]) + ", MAX_SUPP_HEADERS," + str(headers_t["header_length_larray_size"]) \
+                                                        + ", " + str(headers_t["len_bit_size"]) + ">, " + str(headers_t["header_length_larray_size"]) + "> "\
 							+ header_name + "(IF_SOFTWARE(\"" + header_name + "\",) " + str(headers_t["parser_state_id"]) + ", "\
 							+ headers_t["header_type_name"] + ");" + "\n")
 
@@ -439,31 +487,16 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
                                                     for next_state_tt in headers_tt["next_state"]:
                                                         if next_state_tt == headers_t["header_name"]:
                                                             multi_level_parent = True
-                                                            #print "Found nodes in different levels with same parent: " + headers_t["header_name"] + " and " + headers_tt["header_name"] + \
-                                                            #        ". Using " + headers_tt["header_name"] + " as a bypass node"
-				                            #Parser.write("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n")
 				                            tt.append("Found nodes in different levels with same parent: " + headers_t["header_name"] + " and " + headers_tt["header_name"] + \
                                                                     ". Using " + headers_tt["header_name"] + " as a bypass node")
                                                             t.append("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n")
-                                                    
-                                        #if multi_level_parent:
-                                        #    print "-----------------------"
-                                        #    print(t)
-                                        #    ##    break
  
                                     if not multi_level_parent:
 				        Parser.write("\n\tif (tmp_" + str(previous_states[0]) + "_PHV[" + str(previous_states[1]) +"].Valid)" + "\n")
 				        Parser.write("\n\t\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(previous_states[1]) +"];" + "\n")
-                                    #else:
-                                        #print "-----------------------"
-                                        #print(t)
-                                        #Parser.write(reg_str_bypass)
                                 if multi_level_parent:
-                                    #print "-----------------------"
                                     print(tt[len(tt) - 1])
                                     Parser.write(t[len(t)-1])
-                                    ##    break
- 
 
 			Parser.write("\n\t" + header_name + ".HeaderAnalysis(tmpPacketIn[" + str(header_state_id) + "], " \
 						"tmp_" + header_name + "_PHV[" + str(header_state_id) + "], tmpPacketOut[" + str(header_state_id) + "]);" + "\n")
