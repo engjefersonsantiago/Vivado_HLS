@@ -13,7 +13,7 @@
 
 // Define to enable lookup implementation for the extraction bit shifts
 #define LOOKUPTABLE_FOR_SHIFT_CALC 1	//For "small" headers reduces area and improves performance
-#define LOOKUPTABLE_FOR_OUT_BUS_SHIFT_CALC 0
+#define LOOKUPTABLE_FOR_OUT_BUS_SHIFT_CALC 1
 
 // Macro to define the stuff data out size and the key shift
 #define STUFF_AND_SHIFT_SIZE_OP(A, B, C) (((A) < (B)) ? (B - C) : (B - (C%B)))
@@ -112,7 +112,7 @@ class Header {
 				HeaderDone{false},
 				NextHeader{0},
 				headerSizeValid{false},
-				headerSize{HEADER_SIZE_IN_BITS},	
+				headerSize{HEADER_SIZE_IN_BITS},
 				stateTransShiftVal{	STUFF_AND_SHIFT_SIZE_OP(HEADER_SIZE_IN_BITS, \
 									N_BusSize,
 									(HLayout.KeyLocation.first + HLayout.KeyLocation.second))},
@@ -131,7 +131,7 @@ class Header {
 				HeaderLessBusStuffRShift[i] = ap_uint<N_BusSize>(N_BusSize) - ap_uint<N_BusSize>(busSizemod[i]);
 				HeaderGreaterBusStuffShift[i] = ap_uint<N_BusSize>(HLayout.ArrLenLookup[i]);
 				HeaderGreaterBusStuffRShift[i] = ap_uint<N_BusSize>(N_BusSize) - ap_uint<N_BusSize>(HLayout.ArrLenLookup[i]);
-			}	
+			}
 		}
 
         // General MISC information
@@ -206,11 +206,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 	ap_uint<numbits(HEADER_SIZE_IN_BITS)> tmpHeaderSize;
 
 	if ((!headerSizeValid && tmpReceivedBits > HeaderLayout.HeaderLengthInd.first) and HeaderLayout.varSizeHeader) {
-#if LOOKUPTABLE_FOR_OUT_BUS_SHIFT_CALC
-		tmpHeaderSize = ap_uint<numbits(HEADER_SIZE_IN_BITS)>(HeaderLayout.ArrLenLookup[tmpLenVal]);
-#else
 		HeaderLayout.getHeaderSize(tmpHeaderSize, tmpLenVal);
-#endif
 		IF_SOFTWARE(std::cout << "Header size of " << instance_name << " is " << tmpHeaderSize << std::endl;)
 		headerSizeValid = true;
 		headerSize = tmpHeaderSize;
@@ -240,9 +236,6 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 	PHV.ID = instance_id;
 	PHV.PktID = PacketIn.ID;
 	PHV.ValidPulse = HeaderDonePulse = false;
-	
-	std::cout << "receivedBits: " << receivedBits << std::endl;
-	std::cout << "tmpHeaderSize: " << tmpHeaderSize << std::endl;
 
 	if (!HeaderDone) {
 		PHV.ValidPulse = PHV.Valid = HeaderDone;
@@ -305,7 +298,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 			PacketOut.Data = DataHeaderGreaterBus[LenVal];
 		}
 #else
-		ap_uint<N_BusSize> busSizemod = busSizeMask & headerSize; 
+		ap_uint<N_BusSize> busSizemod = busSizeMask & headerSize;
 		ap_uint<N_BusSize> stuffShift;
 		ap_uint<N_BusSize> stuffRShift;
 		ap_uint<N_BusSize> stuffSizeMask;
@@ -321,7 +314,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 			PacketOut.Data = (T_DataBus(PacketOutReg.Data) << stuffShift)
 							 | (T_DataBus(PacketIn.Data) >> stuffRShift);
 #endif
-	} else {	
+	} else {
 		PacketOut.Data = (DATAOUT_STUFF_SHIFT == 0) ?
 						  T_DataBus(PacketIn.Data) :
 						  ((T_DataBus(PacketOutReg.Data) << DATAOUT_STUFF_SHIFT)
@@ -346,14 +339,14 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 	::HeaderAnalysis(const PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketIn, PHVData<N_Size, N_MaxSuppHeaders, N_MaxPktId>& PHV, PacketData<N_BusSize, N_MaxSuppHeaders, N_MaxPktId>& PacketOut)
 {
 #pragma HLS LATENCY min=1 max=1
+#pragma HLS PIPELINE II=1
 #pragma HLS DEPENDENCE variable=HeaderIdle WAR false
 #pragma HLS DEPENDENCE variable=NextHeaderValid WAR false
 #pragma HLS DEPENDENCE variable=HeaderDone WAR false
 #pragma HLS DEPENDENCE variable=NextHeader WAR false
-//#pragma HLS DEPENDENCE variable=HeaderDonePulse WAR false
-//#pragma HLS DEPENDENCE variable=headerSize WAR false
-//#pragma HLS DEPENDENCE variable=headerSizeValid WAR false
-#pragma HLS PIPELINE II=1
+#pragma HLS DEPENDENCE variable=HeaderDonePulse WAR false
+#pragma HLS DEPENDENCE variable=headerSize WAR false
+#pragma HLS DEPENDENCE variable=headerSizeValid WAR false
 
 	// New packet detection
 	if (PacketIn.Start && PacketIn.HeaderID == instance_id) {

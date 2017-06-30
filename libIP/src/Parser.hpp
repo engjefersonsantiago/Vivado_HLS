@@ -11,7 +11,7 @@
 
 #define _PARSER_HEADER_HPP_
 
-#define PKT_BUS_SIZE 256
+#define PKT_BUS_SIZE 320
 
 #define MAX_PKT_ID_SIZE 16
 
