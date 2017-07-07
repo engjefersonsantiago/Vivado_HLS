@@ -79,6 +79,10 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 #pragma HLS ARRAY_PARTITION variable=tmp_tcp_PHV dim=1
 #pragma HLS DEPENDENCE variable=tmp_tcp_PHV false
 
+	//---------------------------------------
+	//ethernet
+	//---------------------------------------
+
 	tmpPacketIn[1] = PacketIn;
 
 	ethernet.HeaderAnalysis(tmpPacketIn[1], tmp_ethernet_PHV[1], tmpPacketOut[1]);
@@ -87,6 +91,10 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 		tmp_ethernet_PHV[i+1] = tmp_ethernet_PHV[i];
 
 	ethernet_PHV = tmp_ethernet_PHV[MAX_SUPP_HEADERS];
+
+	//---------------------------------------
+	//vlan
+	//---------------------------------------
 
 	tmpPacketIn[2] = tmpPacketOut[1];
 
@@ -97,7 +105,24 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 
 	vlan_PHV = tmp_vlan_PHV[MAX_SUPP_HEADERS];
 
-	tmpPacketIn[3] = tmpPacketOut[2];
+	//---------------------------------------
+	//ipv6
+	//---------------------------------------
+
+		tmpPacketIn[4] = tmpPacketOut[2];
+
+	ipv6.HeaderAnalysis(tmpPacketIn[4], tmp_ipv6_PHV[4], tmpPacketOut[4]);
+
+	for (auto i = 4; i < MAX_SUPP_HEADERS; ++i)
+		tmp_ipv6_PHV[i+1] = tmp_ipv6_PHV[i];
+
+	ipv6_PHV = tmp_ipv6_PHV[MAX_SUPP_HEADERS];
+
+	//---------------------------------------
+	//ipv4_var
+	//---------------------------------------
+
+		tmpPacketIn[3] = tmpPacketOut[2];
 
 	ipv4_var.HeaderAnalysis(tmpPacketIn[3], tmp_ipv4_var_PHV[3], tmpPacketOut[3]);
 
@@ -106,14 +131,9 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 
 	ipv4_var_PHV = tmp_ipv4_var_PHV[MAX_SUPP_HEADERS];
 
-	tmpPacketIn[4] = tmpPacketOut[2];
-
-	ipv6.HeaderAnalysis(tmpPacketIn[4], tmp_ipv6_PHV[4], tmpPacketOut[4]);
-
-	for (auto i = 4; i < MAX_SUPP_HEADERS; ++i)
-		tmp_ipv6_PHV[i+1] = tmp_ipv6_PHV[i];
-
-	ipv6_PHV = tmp_ipv6_PHV[MAX_SUPP_HEADERS];
+	//---------------------------------------
+	//udp
+	//---------------------------------------
 
 	if (tmp_ipv4_var_PHV[3].Valid)
 
@@ -130,6 +150,10 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 
 	udp_PHV = tmp_udp_PHV[MAX_SUPP_HEADERS];
 
+	//---------------------------------------
+	//tcp
+	//---------------------------------------
+
 	if (tmp_ipv4_var_PHV[3].Valid)
 
 		tmpPacketIn[6] = tmpPacketOut[3];
@@ -144,6 +168,10 @@ void HeaderAnalysisTop(const PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_
 		tmp_tcp_PHV[i+1] = tmp_tcp_PHV[i];
 
 	tcp_PHV = tmp_tcp_PHV[MAX_SUPP_HEADERS];
+
+	//---------------------------------------
+	//Ouput data bus
+	//---------------------------------------
 
 	if (tmp_udp_PHV[5].Valid)
 

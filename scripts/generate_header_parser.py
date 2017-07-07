@@ -9,6 +9,8 @@ import sys
 import math
 import copy
 import re
+from pygraphviz import *
+import networkx as nx
 
 HEADER_TYPES_STR = "header_types"
 HEADER_INST_STR = "headers"
@@ -26,6 +28,104 @@ def recur_search (exp_dict):
 
     return expr_str
 
+def transf_graph(headers_list):
+    edges = []
+    nodes = []
+    for headers_t in headers_list:
+        nodes.append(headers_t["header_name"])
+        for nstates in headers_t["next_state"]:
+            edges.append((headers_t["header_name"], nstates))
+
+    full_graph = AGraph(directed=True, acyclic=True)
+    full_graph.add_nodes_from(nodes)
+    full_graph.add_edges_from(edges)
+    reduced_graph = full_graph.tred(copy=True)
+    full_graph.write('full_graph.dot')
+    reduced_graph.write('reduced_graph.dot')
+    
+    G = nx.DiGraph()
+    G.add_nodes_from(reduced_graph.nodes())
+    G.add_edges_from(reduced_graph.edges())
+    try:
+    	longest_path = nx.dag_longest_path(G)
+    except nx.exception.NetworkXUnfeasible: # There's a loop!
+     	print("The graph has a cycle")
+    
+    nodes = reduced_graph.nodes()
+    edges = reduced_graph.edges()
+    
+    # [Graph_Level, Dummy_Insertion]
+    nodes_dict = {}
+    
+    for i in nodes:
+    	if i in longest_path:
+    		nodes_dict[i] = [None]*3
+    
+    	for j in range(len(longest_path)):
+    		if longest_path[j] == i:
+    			nodes_dict[i][0] = j
+    			nodes_dict[i][1] = False
+    
+    for i in nodes:
+    	if i in longest_path:
+    		continue
+    
+    	nodes_dict[i] = [None]*3
+    	predecessors = reduced_graph.predecessors(i)
+    	max_val = 0
+    	
+    	for pred in predecessors:
+    		for nnodes in nodes_dict:
+    			if nnodes == pred:
+    				if nodes_dict[nnodes][0] >= max_val:
+    					max_val = nodes_dict[nnodes][0] 
+    
+    	nodes_dict[i][0] = max_val + 1
+    	nodes_dict[i][1] = False
+    
+    for i in nodes:
+    	nodes_dict[i][2] = False
+    	successors = reduced_graph.successors(i)
+    	succ_levels = []
+    	for succ in successors:
+    		for nnodes in nodes_dict:
+    			if nnodes == succ:
+    				if nodes_dict[nnodes][0] != nodes_dict[i][0] + 1:
+    					nodes_dict[i][1] = True
+    					break
+    
+    nodes_dict.pop('end')
+    
+    for nnodes in nodes_dict:
+    	print nnodes
+    	print nodes_dict[nnodes]
+    
+    nodes_list = [] 
+    nodes_levels = []
+    for i in nodes_dict:
+    	nodes_list.append([i, nodes_dict[i]])
+    	nodes_levels.append(nodes_dict[i][0])
+    
+    print nodes_list
+    print nodes_levels
+    nodes_levels.sort()
+    print nodes_levels
+    nodes_list2 = [None]*len(nodes_list)
+    int_num = 0
+    
+    for i in range(len(nodes_levels)):
+    	for j in nodes_list:
+    		if j[1][0] == nodes_levels[i] and not j[1][2]:
+    			nodes_list2[i] = j
+    			j[1][2]=True
+    			break
+    
+    for i in nodes_list2:
+    	print i
+    
+    return nodes_list2, nodes_levels 
+
+##################################################33
 def json_parser(json_file):
 	with open(json_file) as data_file:
 		data = json.load(data_file)
@@ -192,18 +292,21 @@ def json_parser(json_file):
 									    transition_tuple[4] = ""	# Header name
 									    headers_t["transition_keys"].append(transition_tuple)
 
-	# Final adjusts to retrieve max header number and pipeline laytout
+        # Final adjusts to retrieve max header number and pipeline laytout
 	transition_id = []
 	header_sizes_id = []
 	header_size = 0
 	for headers_t in headers_list:
+                headers_t["next_state"].append("end")
+		headers_t["next_state_id"].append(255)
 		headers_t["key_number"] = len(headers_t["transition_keys"])
 		transition_id.append(headers_t["parser_state_id"])
 		header_sizes_id.append(headers_t["header_size"])
 		header_size+=headers_t["header_size"]
 		for headers_tt in headers_list:
 			for state in headers_t["transition_keys"]:
-				if headers_tt["parser_state"] == state[2]:
+				if headers_tt["parser_state"] == state[2] and\
+                                        not headers_tt["header_name"] in headers_t["next_state"]:
 					headers_t["next_state"].append(headers_tt["header_name"])
 					headers_t["next_state_id"].append(headers_tt["parser_state_id"])
 					state[3] = headers_tt["parser_state_id"]
@@ -216,12 +319,19 @@ def json_parser(json_file):
 					previous_state_tuple[1] = headers_t["parser_state_id"]
 					headers_tt["previous_state_both"].append(previous_state_tuple)
 
-	input_parser_state = min(transition_id)
+        # Graph transformation
+        node_list, nodes_levels = transf_graph(headers_list)
+
+	for headers_t in headers_list:
+            headers_t["next_state"].remove("end")
+	    headers_t["next_state_id"].remove(255)
+
+        input_parser_state = min(transition_id)
 	max_supp_headers = max(transition_id)
 	max_header_size = max(header_sizes_id)
 	header_num = len(header_sizes_id)
 	header_size_avg = int(math.ceil(header_size/header_num))
-	return headers_list, input_parser_state, max_supp_headers, max_header_size, header_num, header_size_avg
+	return headers_list, input_parser_state, max_supp_headers, max_header_size, header_num, header_size_avg, node_list, nodes_levels 
 
 ##############################################################
 # Write the header layout types
@@ -379,8 +489,9 @@ def write_headers_template(headers_list, max_supp_headers, max_header_size, head
 ##############################################################
 # Write the parser pipeline
 ##############################################################
-def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_state, max_supp_headers):
-	##############
+def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_state, max_supp_headers, node_list, nodes_levels):
+        
+        ##############
 	# Parser.hpp #
 	##############
 	with open("Parser.hpp", "w") as Parser:
@@ -461,16 +572,44 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
 			Parser.write("#pragma HLS ARRAY_PARTITION variable=tmp_" + header_name + "_PHV dim=1" + "\n")
 			Parser.write("#pragma HLS DEPENDENCE variable=tmp_" + header_name + "_PHV false" + "\n")
 
-		for headers_t in headers_list:
-			header_name = headers_t["header_name"]
-			header_name_cap = string.upper(header_name)
-			header_state_id = headers_t["parser_state_id"]
+                for headers_t in headers_list:
+                    for nodes in node_list:
+                        if nodes[0] == headers_t["header_name"]:
+                            if nodes[1][1]:
+                                #print nodes[0]
+                                for nodess in node_list:
+                                    if nodes[1][0] == nodess[1][0] and nodes[0] != nodess[0]:
+                                        #print nodess[0]
+                                        for headers_tt in headers_list:
+                                            for ps in headers_tt["previous_state_both"]:
+                                                if ps[0] == nodess[0]:
+                                                    ttuple = [None]*2
+                                                    ttuple[0] = headers_t["header_name"]
+                                                    ttuple[1] = headers_t["parser_state_id"]
+                                                    headers_tt["previous_state_both"].append(ttuple)
+                                                    headers_tt["previous_state_id"].append(headers_t["parser_state_id"])
+                                                    break
 
-			if headers_t["parser_state_id"] == input_parser_state:
+                max_level = max(nodes_levels)
+                for nodes in node_list:
+                        for headers_t in headers_list:
+                            if headers_t["header_name"] == nodes[0]:
+                                header_name = headers_t["header_name"]
+			        header_state_id = headers_t["parser_state_id"]
+			        previous_state_id = headers_t["previous_state_id"]
+			        previous_state_both = headers_t["previous_state_both"]
+                        
+                        Parser.write("\n\t//---------------------------------------\n")
+                        Parser.write("\t//" + header_name + "\n")
+                        Parser.write("\t//---------------------------------------\n")
+
+			if header_state_id == input_parser_state:
+                            print header_name + " <- Input Data"  
                             Parser.write("\n\ttmpPacketIn[" + str(input_parser_state) + "] = PacketIn;" + "\n")
 			else:
-			    if len(headers_t["previous_state_id"]) == 1:
-			        Parser.write("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(headers_t["previous_state_id"][0]) +"];" + "\n")
+			    if len(previous_state_id) == 1:
+                                print header_name + " <- " + previous_state_both[0][0]  
+			        Parser.write("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(previous_state_id[0]) +"];" + "\n")
 			    else:
                                 multi_level_parent = False
                                 str_bypass = ""
@@ -479,24 +618,29 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
                                 reg_bypass_id = 0
                                 tt = []
                                 t = []
-				for previous_states in headers_t["previous_state_both"]:
-				    for headers_tt in headers_list:
-                                        if headers_tt["previous_state_both"] != headers_t["previous_state_both"]:
-				            for previous_states_tt in headers_tt["previous_state_both"]:
-                                                if previous_states_tt == previous_states:
-                                                    for next_state_tt in headers_tt["next_state"]:
-                                                        if next_state_tt == headers_t["header_name"]:
-                                                            multi_level_parent = True
-				                            tt.append("Found nodes in different levels with same parent: " + headers_t["header_name"] + " and " + headers_tt["header_name"] + \
-                                                                    ". Using " + headers_tt["header_name"] + " as a bypass node")
-                                                            t.append("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n")
- 
-                                    if not multi_level_parent:
-				        Parser.write("\n\tif (tmp_" + str(previous_states[0]) + "_PHV[" + str(previous_states[1]) +"].Valid)" + "\n")
-				        Parser.write("\n\t\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(previous_states[1]) +"];" + "\n")
-                                if multi_level_parent:
-                                    print(tt[len(tt) - 1])
-                                    Parser.write(t[len(t)-1])
+                                it = 0
+				for previous_states in previous_state_both:
+				    for nodess in node_list:
+                                        if nodess[0] == previous_states[0]:
+                                            if nodess[1][0] == nodes[1][0] - 1:
+                                                for headers_tt in headers_list:
+                                                    if headers_tt["header_name"] == nodess[0]:
+                                                        if not nodess[1][1]:
+                                                            it+=1
+
+				for previous_states in previous_state_both:
+				    for nodess in node_list:
+                                        if nodess[0] == previous_states[0]:
+                                            if nodess[1][0] == nodes[1][0] - 1:
+                                                print header_name + " <- " + nodess[0]
+                                                for headers_tt in headers_list:
+                                                    if headers_tt["header_name"] == nodess[0]:
+                                                        if nodess[1][1] or (header_name in headers_tt["next_state"] and it > 1):
+       			                                    Parser.write("\n\tif (tmp_" + str(nodess[0]) + "_PHV[" +\
+                                                                    str(headers_tt["parser_state_id"]) + "].Valid)" + "\n")
+        			                        Parser.write("\n\t\ttmpPacketIn[" + str(header_state_id) + \
+                                                                "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n")
+                                                        
 
 			Parser.write("\n\t" + header_name + ".HeaderAnalysis(tmpPacketIn[" + str(header_state_id) + "], " \
 						"tmp_" + header_name + "_PHV[" + str(header_state_id) + "], tmpPacketOut[" + str(header_state_id) + "]);" + "\n")
@@ -506,38 +650,20 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
 
 			Parser.write("\n\t" + header_name + "_PHV = tmp_" + header_name + "_PHV[MAX_SUPP_HEADERS];" + "\n")
 
+                ## Connecting last stage pipe
+                Parser.write("\n\t//---------------------------------------\n")
+                Parser.write("\t//Ouput data bus\n")
+                Parser.write("\t//---------------------------------------\n")
+
                 for headers_t in headers_list:
 		    if headers_t["last_header"]:
-		        header_name = headers_t["header_name"]
-		        header_state_id = headers_t["parser_state_id"]
-		        Parser.write("\n\tif (tmp_" + str(header_name) + "_PHV[" + str(header_state_id) +"].Valid)" + "\n")
-		        Parser.write("\n\t\tPacketOut = tmpPacketOut[" + str(header_state_id) +"];" + "\n")
-
-
-#		for headers_t in headers_list:
-#			header_name = headers_t["header_name"]
-#			header_name_cap = string.upper(header_name)
-#			header_state_id = headers_t["parser_state_id"]
-#
-#			if headers_t["parser_state_id"] == input_parser_state:
-#				Parser.write("\n\ttmpPacketIn[" + str(input_parser_state) + "] = PacketIn;" + "\n")
-#			else:
-#				Parser.write("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(header_state_id - 1) +"];" + "\n")
-#			#Parser.write("\n\t" + header_name + ".HeaderAnalysis(tmpPacketIn[" + str(header_state_id) + "], " \
-#			#			+ header_name + "_PHV, tmpPacketOut[" + str(header_state_id) + "]);" + "\n")
-#
-#                        ## aqui
-#
-#			Parser.write("\n\t" + header_name + ".HeaderAnalysis(tmpPacketIn[" + str(header_state_id) + "], " \
-#						"tmp_" + header_name + "_PHV[" + str(header_state_id) + "], tmpPacketOut[" + str(header_state_id) + "]);" + "\n")
-#
-#			Parser.write("\n\tfor (auto i = " + str(header_state_id) + "; i < MAX_SUPP_HEADERS; ++i)"\
-#							"\n\t\ttmp_" + header_name + "_PHV[i+1] = tmp_" + header_name + "_PHV[i];" + "\n")
-#
-#
-#			Parser.write("\n\t" + header_name + "_PHV = tmp_" + header_name + "_PHV[MAX_SUPP_HEADERS];" + "\n")
-#
-#		Parser.write("\n\tPacketOut = tmpPacketOut[" + str(header_state_id) +"];" + "\n")
+                        for nodes in node_list:
+                            if nodes[1][0] == max_level and nodes[0] == headers_t["header_name"]:
+                                header_name = headers_t["header_name"]
+		                header_state_id = headers_t["parser_state_id"]
+		                Parser.write("\n\tif (tmp_" + str(header_name) + "_PHV[" + str(header_state_id) +"].Valid)" + "\n")
+		                Parser.write("\n\t\tPacketOut = tmpPacketOut[" + str(header_state_id) +"];" + "\n")
+                                break
 
 		Parser.write("\n}\n")
 
@@ -556,9 +682,9 @@ def main():
 	bus_size = sys.argv[2]
 	max_pkt_id_size = sys.argv[3]
 
-	headers_list, input_parser_state, max_supp_headers, max_header_size, header_num, header_size_avg  = json_parser(json_file)
+	headers_list, input_parser_state, max_supp_headers, max_header_size, header_num, header_size_avg, node_list, nodes_levels  = json_parser(json_file)
 	write_headers_template(headers_list, max_supp_headers, max_header_size, header_num)
-	write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_state, max_supp_headers)
+	write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_state, max_supp_headers, node_list, nodes_levels)
 
 	print "Parsing Done"
 

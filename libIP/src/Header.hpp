@@ -255,7 +255,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 			PHV.Data = ExtractedHeader & HeaderLayout.PHVMask;
 			PHV.ValidPulse = PHV.Valid = HeaderDone = HeaderDonePulse = true;
 			PHV.ExtractedBitNum = headerSize;
-			std::cout << "Extracted: " << std::dec << (!HeaderLayout.varSizeHeader ? uint16_t(N_Size) : uint16_t(headerSize/8))  << " Bytes. PHV: " << std::hex << PHV.Data << std::endl;
+			std::cout << "Extracted: " << std::dec << uint16_t(headerSize/8) << " Bytes. PHV: " << std::hex << PHV.Data << std::endl;
 		}
 	}
 }

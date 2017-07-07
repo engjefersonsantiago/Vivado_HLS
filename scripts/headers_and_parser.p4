@@ -4,6 +4,8 @@
 
 #define TEST_VAR_HEADER 1
 #define TESTABLE 1
+//#define BITNUM 992
+#define BITNUM 224
 
 // Ethernet
 header_type ethernet_t {
@@ -117,7 +119,7 @@ header_type ipv6_ext_1_t {
         bit<8> nextHdr;
         bit<8> totalLen;
         bit<16> stuff;
-		varbit<224> options;
+		varbit<BITNUM> options;
     }
 	length : 8*(totalLen + 1);
 	//length : 8*totalLen + 8;
@@ -129,7 +131,7 @@ header_type ipv6_ext_2_t {
         bit<8> nextHdr;
         bit<8> totalLen;
         bit<16> stuff;
-		varbit<224> options;
+		varbit<BITNUM> options;
     }
 	length : 8*(totalLen + 1);
 	//length : 8*totalLen + 8;
@@ -298,7 +300,6 @@ parser parse_ipv6 {
     return select(ipv6.nextHdr){
 #if TESTABLE == 0
 		0x00	  : parse_ipv6_ext_1;
-		0x3c   	  : parse_ipv6_ext_1;
         0x3a      : parse_icmp;
 #endif
         0x11      : parse_udp;
@@ -321,6 +322,7 @@ parser parse_tcp {
 parser parse_ipv6_ext_1 {
     extract(ipv6_ext_1);
     return select(ipv6_ext_1.nextHdr){
+        0x3a      : parse_icmp;
 		0x3c   	  : parse_ipv6_ext_2;
         0x11      : parse_udp;
         0x06      : parse_tcp;
@@ -331,6 +333,7 @@ parser parse_ipv6_ext_1 {
 parser parse_ipv6_ext_2 {
     extract(ipv6_ext_2);
     return select(ipv6_ext_2.nextHdr){
+        0x3a      : parse_icmp;
         0x11      : parse_udp;
         0x06      : parse_tcp;
         default   : ingress;
