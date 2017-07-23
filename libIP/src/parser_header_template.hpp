@@ -108,7 +108,7 @@ struct ipv4_varHeaderFormat : public HeaderFormat<N_Size, N_Fields, T_Key, N_Key
 		HeaderLengthInd,
 		ArrLenLookup}) {}
 
-	void getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, const ap_uint<4>& ihl) {
+	void getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, const ap_uint<4>& ihl) const {
 		size = ((0x4*ihl)*0x8);
 	}
 };

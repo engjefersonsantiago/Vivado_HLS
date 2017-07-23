@@ -43,7 +43,9 @@ struct HeaderFormat {
 	std::pair<ap_uint<numbits(bytes2Bits(N_Size))>, ap_uint<numbits(bytes2Bits(N_Size))>> HeaderLengthInd;	// First: Offset. Second: Lenght
 	std::array<ap_uint<N_HeaderLenELemBits>, N_HeaderLenArrSize> ArrLenLookup;
 	// For fixed sized headers. Needs to be redefined for variable sizes
-	void getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, const ap_uint<numbits(bytes2Bits(N_Size))>& expr_val) {size = bytes2Bits(N_Size);}
+	void getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, const ap_uint<numbits(bytes2Bits(N_Size))>& expr_val) const {
+		size = bytes2Bits(N_Size);
+	}
 
 	//HeaderFormat(	ap_uint<bytes2Bits(N_Size)> PHVMask_,
 	//				std::array<FieldFormat<N_Size>, N_Fields> Fields_,

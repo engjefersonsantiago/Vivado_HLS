@@ -17,6 +17,8 @@ CLI_PATH=$BMV2_PATH/targets/simple_switch/sswitch_CLI
 # process back in the foreground
 set -m
 $P4C_BM_SCRIPT headers_and_parser.p4 --json headers_and_parser.json  --p4-v1.1 
+$P4C_BM_SCRIPT headers_simpl.p4 --json headers_simpl.json  --p4-v1.1 
+$P4C_BM_SCRIPT headers_full.p4 --json headers_full.json  --p4-v1.1 
 if [ $? -ne 0 ]; then
 echo "p4 compilation failed"
 exit 1

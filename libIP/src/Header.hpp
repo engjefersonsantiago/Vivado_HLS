@@ -63,7 +63,7 @@ class Header {
 		IF_SOFTWARE(const std::string instance_name;)
 		const headerIDType instance_id;
 
-		T_HaeaderLayout HeaderLayout;
+		const T_HaeaderLayout HeaderLayout;
 
 		bool HeaderIdle;
 		bool HeaderDone;
@@ -74,6 +74,7 @@ class Header {
 		bool NextHeaderValid;
 
 		ExtractedHeaderType ExtractedHeader;
+		const bool skipExtraction;
 		receivedWordsType receivedWords;
 		receivedBitsType receivedBits;
 
@@ -85,8 +86,7 @@ class Header {
 
 		bool headerSizeValid;
 		ap_uint<numbits(HEADER_SIZE_IN_BITS)> headerSize;
-
-		uint16_t LenVal;
+		ap_uint<numbits(HEADER_SIZE_IN_BITS)> LenVal;
 
 		const ap_uint<N_BusSize> busSizeMask ;
 		std::array<ap_uint<N_BusSize>, N_HeaderLenArrSize> busSizemod;
@@ -105,6 +105,7 @@ class Header {
 				IF_SOFTWARE(instance_name{instance_name},)
 				instance_id{instance_id},
 				HeaderLayout(HLayout),
+				skipExtraction{HLayout.PHVMask == 0},
 				HeaderIdle{true},
 				receivedWords{0},
 				receivedBits{0},
@@ -210,7 +211,7 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 		IF_SOFTWARE(std::cout << "Header size of " << instance_name << " is " << tmpHeaderSize << std::endl;)
 		headerSizeValid = true;
 		headerSize = tmpHeaderSize;
-		LenVal = uint16_t(tmpLenVal);
+		LenVal = ap_uint<numbits(HEADER_SIZE_IN_BITS)>(tmpLenVal);
 	}
 
 	auto tmpShiftVal = N_BusSize*(receivedWords+1);	//Implemented as SR not mul
@@ -242,17 +243,16 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 		if ((!HeaderLayout.varSizeHeader and receivedWords < RECEIVED_MAX_WORDS) or
 			(HeaderLayout.varSizeHeader and ((!headerSizeValid and receivedBits < tmpHeaderSize)
 				or (headerSizeValid and receivedBits < headerSize)))) {
-			if (HEADER_SIZE_IN_BITS > N_BusSize)  {
-///////				if (receivedWords == 0) {
-///////					ExtractedHeader = tmpDinlShifted;
-///////				} else {
+			if(!skipExtraction){
+				if (HEADER_SIZE_IN_BITS > N_BusSize)  {
 					ExtractedHeader |= tmpDinlShifted;
-///////				}
-			} else {
-				ExtractedHeader = tmpDinrShifted;
-			}
+				} else {
+					ExtractedHeader = tmpDinrShifted;
+				}
+			} //else
+				//ExtractedHeader = 0;
 		} else  {
-			PHV.Data = ExtractedHeader & HeaderLayout.PHVMask;
+			PHV.Data = (skipExtraction) ? ap_uint<bytes2Bits(N_Size)>(0) : (ExtractedHeader & HeaderLayout.PHVMask);
 			PHV.ValidPulse = PHV.Valid = HeaderDone = HeaderDonePulse = true;
 			PHV.ExtractedBitNum = headerSize;
 			std::cout << "Extracted: " << std::dec << uint16_t(headerSize/8) << " Bytes. PHV: " << std::hex << PHV.Data << std::endl;
@@ -283,12 +283,10 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 #pragma HLS ARRAY_PARTITION variable=HeaderBusCompVal dim=1
 
 		for (auto i = 0; i < N_HeaderLenArrSize; ++i){
-			DataHeaderLessBus[i] = /*(busSizemod[i] == 0) ?
-								  T_DataBus(PacketIn.Data) :*/
+			DataHeaderLessBus[i] = 
 									(T_DataBus(PacketOutReg.Data) << HeaderLessBusStuffShift[i])
 									| (T_DataBus(PacketIn.Data) >> HeaderLessBusStuffRShift[i]);
-			DataHeaderGreaterBus[i] = /*(busSizemod[i] == 0) ?
-									  T_DataBus(PacketIn.Data) :*/
+			DataHeaderGreaterBus[i] = 
 										(T_DataBus(PacketOutReg.Data) << HeaderGreaterBusStuffShift[i])
 										| (T_DataBus(PacketIn.Data) >> HeaderGreaterBusStuffRShift[i]);
 		}
@@ -303,7 +301,6 @@ void Header<N_Size, N_Fields, T_Key, N_Key, T_DataBus, N_BusSize, N_MaxPktSize, 
 		ap_uint<N_BusSize> stuffRShift;
 		ap_uint<N_BusSize> stuffSizeMask;
 		auto comp_val = headerSize >> BUS_SIZE_LENGTH > 0;
-		//if (uint16_t(headerSize) > uint16_t(N_BusSize)) {
 		if (comp_val) {
 			stuffShift = ap_uint<N_BusSize>(busSizemod);
 			stuffRShift = ap_uint<N_BusSize>(N_BusSize) - ap_uint<N_BusSize>(busSizemod);

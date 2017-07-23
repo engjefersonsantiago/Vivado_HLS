@@ -12,6 +12,8 @@ import re
 from pygraphviz import *
 import networkx as nx
 
+from stanford_parser_gen_translator import *
+
 HEADER_TYPES_STR = "header_types"
 HEADER_INST_STR = "headers"
 PARSER_INST_STR = "parsers"
@@ -19,7 +21,7 @@ PARSER_INST_STR = "parsers"
 def recur_search (exp_dict):
     expr_str = ""
     if exp_dict["type"] == "expression":
-        expr_str = expr_str + "(" + (str(recur_search(exp_dict["value"]["left"])) + str(exp_dict["value"]["op"]) + str(recur_search(exp_dict["value"]["right"]))) + ")" 
+        expr_str = expr_str + "(" + (str(recur_search(exp_dict["value"]["left"])) + str(exp_dict["value"]["op"]) + str(recur_search(exp_dict["value"]["right"]))) + ")"
     else:
         if exp_dict["type"] != "local":
             expr_str = expr_str + str(exp_dict["value"])
@@ -272,6 +274,7 @@ def json_parser(json_file):
 								headers_t["last_header"] = False
 								print "Found match key in " + states["name"] + ". Key is "\
 										+ headers_t["header_name"] + "." + field[0]
+								headers_t["key_name"] = field[0]
 								headers_t["key_position"] = field[1]
 								headers_t["key_size"] = field[2]
 								headers_t["key_type"] = "ap_uint<" + str(headers_t["key_size"]) + ">"
@@ -322,7 +325,11 @@ def json_parser(json_file):
         # Graph transformation
         node_list, nodes_levels = transf_graph(headers_list)
 
+	# Stanford Parser gen
+        gen_stanford_parser(headers_list)
+
 	for headers_t in headers_list:
+            print headers_t["header_name"]  + ": " + str(headers_t["header_size"]) 
             headers_t["next_state"].remove("end")
 	    headers_t["next_state_id"].remove(255)
 
@@ -396,7 +403,7 @@ def write_headers_template(headers_list, max_supp_headers, max_header_size, head
                             
                             parser_header_template.write("\n\tvoid getHeaderSize(ap_uint<numbits(bytes2Bits(N_Size))>& size, "\
                                                             "const ap_uint<" + str(headers_t["header_length_size"]) + ">& " \
-                                                            + headers_t["header_length_field"] + ") {" + "\n") 
+                                                            + headers_t["header_length_field"] + ") const {" + "\n") 
                             parser_header_template.write("\t\tsize = " + str(headers_t["header_length_expression"]) + ";" + "\n") 
                             parser_header_template.write("\t}" + "\n")
                             parser_header_template.write("};" + "\n")
@@ -490,7 +497,9 @@ def write_headers_template(headers_list, max_supp_headers, max_header_size, head
 # Write the parser pipeline
 ##############################################################
 def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_state, max_supp_headers, node_list, nodes_levels):
-        
+
+        num_graph_levels = max(nodes_levels) + 1
+
         ##############
 	# Parser.hpp #
 	##############
@@ -541,6 +550,8 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
 
 		Parser.write("#pragma HLS INTERFACE ap_ctrl_none port=return" + "\n")
 		Parser.write("#pragma HLS PIPELINE II=1" + "\n")
+		Parser.write("#pragma HLS LATENCY min=" + str(2*num_graph_levels)+ " max=" + str(2*num_graph_levels) + "\n")
+		Parser.write("/*Consider increase the max acceptable latency in case of clock violation*/\n")
 
 		Parser.write("\n\t// Wires" + "\n")
 		Parser.write("\tstd::array<PacketData<PKT_BUS_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, MAX_SUPP_HEADERS + 1> tmpPacketOut;" + "\n")
@@ -568,7 +579,8 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
 							+ headers_t["header_type_name"] + ");" + "\n")
 
 			Parser.write("\n\tPHVData<" + header_name_cap + "_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE> wire_" + header_name + "_PHV;" + "\n")
-			Parser.write("\n\tstatic std::array<PHVData<" + header_name_cap + "_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, MAX_SUPP_HEADERS + 1> tmp_" + header_name + "_PHV;" + "\n")
+			#Parser.write("\n\tstatic std::array<PHVData<" + header_name_cap + "_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, MAX_SUPP_HEADERS + 1> tmp_" + header_name + "_PHV;" + "\n")
+			Parser.write("\n\tstatic std::array<PHVData<" + header_name_cap + "_HEADER_SIZE, MAX_SUPP_HEADERS, MAX_PKT_ID_SIZE>, 1> tmp_" + header_name + "_PHV;" + "\n")
 			Parser.write("#pragma HLS ARRAY_PARTITION variable=tmp_" + header_name + "_PHV dim=1" + "\n")
 			Parser.write("#pragma HLS DEPENDENCE variable=tmp_" + header_name + "_PHV false" + "\n")
 
@@ -595,6 +607,8 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
                         for headers_t in headers_list:
                             if headers_t["header_name"] == nodes[0]:
                                 header_name = headers_t["header_name"]
+                                header_type_name = headers_t["header_type_name"]
+                                header_size = headers_t["header_size"]
 			        header_state_id = headers_t["parser_state_id"]
 			        previous_state_id = headers_t["previous_state_id"]
 			        previous_state_both = headers_t["previous_state_both"]
@@ -637,32 +651,56 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
                                                     if headers_tt["header_name"] == nodess[0]:
                                                         if nodess[1][1] or (header_name in headers_tt["next_state"] and it > 1):
        			                                    Parser.write("\n\tif (tmp_" + str(nodess[0]) + "_PHV[" +\
-                                                                    str(headers_tt["parser_state_id"]) + "].Valid)" + "\n")
+                                                                    #str(headers_tt["parser_state_id"]) + "].Valid)" + "\n")
+                                                                    "0].Valid)" + "\n")
         			                        Parser.write("\n\t\ttmpPacketIn[" + str(header_state_id) + \
                                                                 "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n")
-                                                        
 
 			Parser.write("\n\t" + header_name + ".HeaderAnalysis(tmpPacketIn[" + str(header_state_id) + "], " \
-						"tmp_" + header_name + "_PHV[" + str(header_state_id) + "], tmpPacketOut[" + str(header_state_id) + "]);" + "\n")
+						#"wire_" + header_name + "_PHV, tmpPacketOut[" + str(header_state_id) + "]);" + "\n")
+                                                "tmp_" + header_name + "_PHV[0], tmpPacketOut[" + str(header_state_id) + "]);" + "\n")
 
-			Parser.write("\n\tfor (auto i = " + str(header_state_id) + "; i < MAX_SUPP_HEADERS; ++i)"\
-							"\n\t\ttmp_" + header_name + "_PHV[i+1] = tmp_" + header_name + "_PHV[i];" + "\n")
+                        #Parser.write("\n\t"  + "tmp_" + header_name + "_PHV[0].Data = " + "wire_" + header_name + "_PHV.Data & " + header_type_name + ".PHVMask;")
 
-			Parser.write("\n\t" + header_name + "_PHV = tmp_" + header_name + "_PHV[MAX_SUPP_HEADERS];" + "\n")
+                        #Parser.write("\n\t"  + "tmp_" + header_name + "_PHV[0].ExtractedBitNum = " + "wire_" + header_name + "_PHV.ExtractedBitNum;")
+                        #Parser.write("\n\t"  + "tmp_" + header_name + "_PHV[0].Valid = " + "wire_" + header_name + "_PHV.Valid;")
+                        #Parser.write("\n\t"  + "tmp_" + header_name + "_PHV[0].ValidPulse = " + "wire_" + header_name + "_PHV.ValidPulse;")
+                        #Parser.write("\n\t"  + "tmp_" + header_name + "_PHV[0].ID = " + "wire_" + header_name + "_PHV.ID;")
+                        #Parser.write("\n\t"  + "tmp_" + header_name + "_PHV[0].PktID = " + "wire_" + header_name + "_PHV.PktID;")
+                        #Parser.write("\n\t"  + "IF_SOFTWARE(tmp_" + header_name + "_PHV[0].Name = " + "wire_" + header_name + "_PHV.Name;)")
+			#Parser.write("\n\t" + header_name + "_PHV = tmp_" + header_name + "_PHV[0];" + "\n")
 
+                        Parser.write("\n\t"  + header_name + "_PHV.Data = (" + header_type_name + ".PHVMask == 0) ? ap_uint<bytes2Bits(" + str(header_size)  + ")>(0) :  tmp_" + header_name + "_PHV[0].Data & " + header_type_name + ".PHVMask;")
+
+                        Parser.write("\n\t"  + header_name + "_PHV.ExtractedBitNum = " + "tmp_" + header_name + "_PHV[0].ExtractedBitNum;")
+                        Parser.write("\n\t"  + header_name + "_PHV.Valid = " + "tmp_" + header_name + "_PHV[0].Valid;")
+                        Parser.write("\n\t"  + header_name + "_PHV.ValidPulse = " + "tmp_" + header_name + "_PHV[0].ValidPulse;")
+                        Parser.write("\n\t"  + header_name + "_PHV.ID = " + "tmp_" + header_name + "_PHV[0].ID;")
+                        Parser.write("\n\t"  + header_name + "_PHV.PktID = " + "tmp_" + header_name + "_PHV[0].PktID;")
+                        Parser.write("\n\t"  + "IF_SOFTWARE(" + header_name + "_PHV.Name = " + "tmp_" + header_name + "_PHV[0].Name;)")
                 ## Connecting last stage pipe
                 Parser.write("\n\t//---------------------------------------\n")
                 Parser.write("\t//Ouput data bus\n")
                 Parser.write("\t//---------------------------------------\n")
 
+                first = True
                 for headers_t in headers_list:
 		    if headers_t["last_header"]:
                         for nodes in node_list:
                             if nodes[1][0] == max_level and nodes[0] == headers_t["header_name"]:
                                 header_name = headers_t["header_name"]
 		                header_state_id = headers_t["parser_state_id"]
-		                Parser.write("\n\tif (tmp_" + str(header_name) + "_PHV[" + str(header_state_id) +"].Valid)" + "\n")
-		                Parser.write("\n\t\tPacketOut = tmpPacketOut[" + str(header_state_id) +"];" + "\n")
+                                if first:
+                                    #Parser.write("\n\tif (tmp_" + str(header_name) + "_PHV[" + str(header_state_id) +"].Valid)" + "\n")
+                                    Parser.write("\n\tif (tmp_" + str(header_name) + "_PHV[0].Valid)" + "\n")
+                                    first = False
+                                else:
+                                    if header_state_id != max_supp_headers:
+                                        #Parser.write("\n\telse if (tmp_" + str(header_name) + "_PHV[" + str(header_state_id) +"].Valid)" + "\n")
+                                        Parser.write("\n\telse if (tmp_" + str(header_name) + "_PHV[0].Valid)" + "\n")
+                                    else:
+                                        Parser.write("\n\telse" + "\n")
+                                Parser.write("\n\t\tPacketOut = tmpPacketOut[" + str(header_state_id) +"];" + "\n")
                                 break
 
 		Parser.write("\n}\n")
