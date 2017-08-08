@@ -550,7 +550,8 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
 
 		Parser.write("#pragma HLS INTERFACE ap_ctrl_none port=return" + "\n")
 		Parser.write("#pragma HLS PIPELINE II=1" + "\n")
-		Parser.write("#pragma HLS LATENCY min=" + str(2*num_graph_levels)+ " max=" + str(2*num_graph_levels) + "\n")
+                #Parser.write("#pragma HLS LATENCY min=" + str(num_graph_levels)+ " max=" + str(num_graph_levels + 1) + "\n")
+                Parser.write("#pragma HLS LATENCY min=" + str(num_graph_levels)+ " max=" + str(num_graph_levels) + "\n")
 		Parser.write("/*Consider increase the max acceptable latency in case of clock violation*/\n")
 
 		Parser.write("\n\t// Wires" + "\n")
@@ -568,6 +569,7 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
                             header_layout = header_name + "HeaderFormat"
 
                         Parser.write("\n#pragma HLS INTERFACE ap_ovld port=" + header_name + "_PHV")
+                        #Parser.write("\n#pragma HLS INTERFACE register port=" + header_name + "_PHV")
 
 			Parser.write("\n\tstatic Header<" + header_name_cap + "_HEADER_SIZE, " + header_name_cap + "_NUM_FIELDS, "\
 							+ headers_t["key_type"] + ", " + str(headers_t["key_number"])\
@@ -603,6 +605,8 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
                                                     break
 
                 max_level = max(nodes_levels)
+                node_it = 0
+                print node_list
                 for nodes in node_list:
                         for headers_t in headers_list:
                             if headers_t["header_name"] == nodes[0]:
@@ -620,20 +624,20 @@ def write_parse_pipeline(headers_list, bus_size, max_pkt_id_size, input_parser_s
 			if header_state_id == input_parser_state:
                             print header_name + " <- Input Data"  
                             Parser.write("\n\ttmpPacketIn[" + str(input_parser_state) + "] = PacketIn;" + "\n")
+                            node_it += 1
 			else:
-			    if len(previous_state_id) == 1:
+                            if len(previous_state_id) == 1:
                                 print header_name + " <- " + previous_state_both[0][0]  
 			        Parser.write("\n\ttmpPacketIn[" + str(header_state_id) + "] = tmpPacketOut[" + str(previous_state_id[0]) +"];" + "\n")
 			    else:
-                                multi_level_parent = False
-                                str_bypass = ""
-                                reg_str_bypass = ""
-                                bypass_id = 0
-                                reg_bypass_id = 0
-                                tt = []
-                                t = []
                                 it = 0
-				for previous_states in previous_state_both:
+				#for headers_tt in headers_list:
+                                #    if node_list[node_it - 1][0] == headers_tt["header_name"]:
+                                #        Parser.write("\n\t\ttmpPacketIn[" + str(header_state_id) + \
+                                #                                "] = tmpPacketOut[" + str(headers_tt["parser_state_id"]) +"];" + "\n") 
+                                #        node_it += 1
+                                #        break
+                                for previous_states in previous_state_both:
 				    for nodess in node_list:
                                         if nodess[0] == previous_states[0]:
                                             if nodess[1][0] == nodes[1][0] - 1:
